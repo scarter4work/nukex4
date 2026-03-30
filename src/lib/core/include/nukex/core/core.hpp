@@ -5,3 +5,4 @@
 #include "nukex/core/histogram.hpp"
 #include "nukex/core/reservoir.hpp"
 #include "nukex/core/distribution.hpp"
+#include "nukex/core/channel_config.hpp"

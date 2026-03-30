@@ -1,10 +1,11 @@
-# nukex4_core — header-only initially, source files added as features land.
-add_library(nukex4_core INTERFACE)
+add_library(nukex4_core STATIC
+    src/channel_config.cpp
+)
 
 target_include_directories(nukex4_core
-    INTERFACE
+    PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
 
-target_compile_features(nukex4_core INTERFACE cxx_std_17)
+target_compile_features(nukex4_core PUBLIC cxx_std_17)
