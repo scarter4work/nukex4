@@ -18,3 +18,4 @@ endfunction()
 
 # Core library tests — each added when implemented (Tasks 4-10)
 nukex_add_test(test_welford       unit/core/test_welford.cpp       nukex4_core)
+nukex_add_test(test_histogram     unit/core/test_histogram.cpp     nukex4_core)
