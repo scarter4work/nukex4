@@ -31,7 +31,7 @@ struct WelfordAccumulator {
     }
 
     float variance() const {
-        return (n > 1) ? M2 / static_cast<float>(n - 1) : 0.0f;
+        return (n > 1) ? std::max(0.0f, M2) / static_cast<float>(n - 1) : 0.0f;
     }
 
     float std_dev() const {

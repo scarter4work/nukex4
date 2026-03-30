@@ -116,4 +116,11 @@ TEST_CASE("WelfordAccumulator: reset clears state", "[welford]") {
     REQUIRE(w.variance() == 0.0f);
     REQUIRE(w.min_val == FLT_MAX);
     REQUIRE(w.max_val == -FLT_MAX);
+
+    // Verify re-use after reset gives correct results (same as fresh accumulator)
+    w.update(5.0f);
+    w.update(15.0f);
+    REQUIRE(w.mean == Catch::Approx(10.0f));
+    REQUIRE(w.variance() == Catch::Approx(50.0f));
+    REQUIRE(w.count() == 2);
 }
