@@ -2,6 +2,7 @@ find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
 add_library(nukex4_alignment STATIC
     src/star_detector.cpp
+    src/star_matcher.cpp
     src/homography.cpp
 )
 
