@@ -3,6 +3,7 @@ pkg_check_modules(CFITSIO REQUIRED cfitsio)
 
 add_library(nukex4_io STATIC
     src/image.cpp
+    src/fits_reader.cpp
 )
 
 target_include_directories(nukex4_io
