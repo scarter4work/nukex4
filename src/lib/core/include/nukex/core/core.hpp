@@ -6,3 +6,4 @@
 #include "nukex/core/reservoir.hpp"
 #include "nukex/core/distribution.hpp"
 #include "nukex/core/channel_config.hpp"
+#include "nukex/core/voxel.hpp"
