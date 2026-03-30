@@ -7,3 +7,4 @@
 #include "nukex/core/distribution.hpp"
 #include "nukex/core/channel_config.hpp"
 #include "nukex/core/voxel.hpp"
+#include "nukex/core/cube.hpp"
