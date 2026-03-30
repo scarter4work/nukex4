@@ -4,3 +4,4 @@
 #include "nukex/core/types.hpp"
 #include "nukex/core/welford.hpp"
 #include "nukex/core/histogram.hpp"
+#include "nukex/core/reservoir.hpp"
