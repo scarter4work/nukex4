@@ -57,6 +57,7 @@ if(NUKEX_BUILD_MODULE)
 endif()
 
 add_subdirectory(src/lib/core)
+add_subdirectory(src/lib/io)
 
 option(NUKEX_BUILD_TESTS "Build unit and integration tests" ON)
 if(NUKEX_BUILD_TESTS)
