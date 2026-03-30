@@ -4,6 +4,7 @@ add_library(nukex4_alignment STATIC
     src/star_detector.cpp
     src/star_matcher.cpp
     src/homography.cpp
+    src/frame_aligner.cpp
 )
 
 target_include_directories(nukex4_alignment

@@ -32,20 +32,60 @@ HomographyMatrix HomographyMatrix::identity() {
     return m;
 }
 
+/// Compute Hartley normalization transform for a set of 2D points.
+/// Returns (T, x_norm, y_norm) where T is a 3x3 normalization matrix
+/// such that the normalized points have centroid at origin and RMS
+/// distance of sqrt(2) from origin.
+static Eigen::Matrix3f compute_normalization(
+    const float* xs, const float* ys, int n,
+    std::vector<float>& x_out, std::vector<float>& y_out) {
+
+    float mean_x = 0, mean_y = 0;
+    for (int i = 0; i < n; i++) { mean_x += xs[i]; mean_y += ys[i]; }
+    mean_x /= n; mean_y /= n;
+
+    float scale = 0;
+    for (int i = 0; i < n; i++) {
+        float dx = xs[i] - mean_x, dy = ys[i] - mean_y;
+        scale += std::sqrt(dx*dx + dy*dy);
+    }
+    scale /= n;
+    if (scale < 1e-10f) scale = 1.0f;
+    scale = std::sqrt(2.0f) / scale;
+
+    x_out.resize(n);
+    y_out.resize(n);
+    for (int i = 0; i < n; i++) {
+        x_out[i] = (xs[i] - mean_x) * scale;
+        y_out[i] = (ys[i] - mean_y) * scale;
+    }
+
+    Eigen::Matrix3f T;
+    T << scale, 0, -mean_x * scale,
+         0, scale, -mean_y * scale,
+         0,     0,              1.0f;
+    return T;
+}
+
 HomographyMatrix HomographyComputer::dlt_4point(
     const float src_x[4], const float src_y[4],
     const float dst_x[4], const float dst_y[4]) {
 
+    // Hartley normalization for numerical stability
+    std::vector<float> nx_s, ny_s, nx_d, ny_d;
+    Eigen::Matrix3f Ts = compute_normalization(src_x, src_y, 4, nx_s, ny_s);
+    Eigen::Matrix3f Td = compute_normalization(dst_x, dst_y, 4, nx_d, ny_d);
+
     // Build the 8×9 DLT matrix A where A * h = 0
-    // For each correspondence (x,y) → (x',y'):
+    // For each correspondence (x,y) → (x',y') in normalized coords:
     //   [-x -y -1  0  0  0  x'x  x'y  x']
     //   [ 0  0  0 -x -y -1  y'x  y'y  y']
     Eigen::Matrix<float, 8, 9> A;
     A.setZero();
 
     for (int i = 0; i < 4; i++) {
-        float x = src_x[i], y = src_y[i];
-        float xp = dst_x[i], yp = dst_y[i];
+        float x = nx_s[i], y = ny_s[i];
+        float xp = nx_d[i], yp = ny_d[i];
 
         A(2*i, 0) = -x;  A(2*i, 1) = -y;  A(2*i, 2) = -1.0f;
         A(2*i, 6) = xp*x; A(2*i, 7) = xp*y; A(2*i, 8) = xp;
@@ -58,19 +98,24 @@ HomographyMatrix HomographyComputer::dlt_4point(
     Eigen::JacobiSVD<Eigen::Matrix<float, 8, 9>> svd(A, Eigen::ComputeFullV);
     Eigen::Matrix<float, 9, 1> h = svd.matrixV().col(8);
 
-    // Reshape h into 3×3 HomographyMatrix
-    HomographyMatrix H;
-    H(0,0) = h(0); H(0,1) = h(1); H(0,2) = h(2);
-    H(1,0) = h(3); H(1,1) = h(4); H(1,2) = h(5);
-    H(2,0) = h(6); H(2,1) = h(7); H(2,2) = h(8);
+    // Reshape h into normalized 3×3 homography
+    Eigen::Matrix3f Hn;
+    Hn << h(0), h(1), h(2),
+          h(3), h(4), h(5),
+          h(6), h(7), h(8);
+
+    // Denormalize: H_real = Td_inv * Hn * Ts
+    Eigen::Matrix3f H_real = Td.inverse() * Hn * Ts;
 
     // Normalize so H(2,2) = 1
-    if (std::abs(H(2,2)) > 1e-10f) {
-        float s = 1.0f / H(2,2);
-        for (int r = 0; r < 3; r++)
-            for (int c = 0; c < 3; c++)
-                H(r,c) *= s;
+    if (std::abs(H_real(2,2)) > 1e-10f) {
+        H_real /= H_real(2,2);
     }
+
+    HomographyMatrix H;
+    for (int r = 0; r < 3; r++)
+        for (int c = 0; c < 3; c++)
+            H(r,c) = H_real(r,c);
 
     return H;
 }
@@ -80,12 +125,18 @@ HomographyMatrix HomographyComputer::dlt_npoint(
     const std::vector<float>& dst_x, const std::vector<float>& dst_y) {
 
     int n = static_cast<int>(src_x.size());
+
+    // Hartley normalization for numerical stability
+    std::vector<float> nx_s, ny_s, nx_d, ny_d;
+    Eigen::Matrix3f Ts = compute_normalization(src_x.data(), src_y.data(), n, nx_s, ny_s);
+    Eigen::Matrix3f Td = compute_normalization(dst_x.data(), dst_y.data(), n, nx_d, ny_d);
+
     Eigen::MatrixXf A(2 * n, 9);
     A.setZero();
 
     for (int i = 0; i < n; i++) {
-        float x = src_x[i], y = src_y[i];
-        float xp = dst_x[i], yp = dst_y[i];
+        float x = nx_s[i], y = ny_s[i];
+        float xp = nx_d[i], yp = ny_d[i];
 
         A(2*i, 0) = -x;  A(2*i, 1) = -y;  A(2*i, 2) = -1.0f;
         A(2*i, 6) = xp*x; A(2*i, 7) = xp*y; A(2*i, 8) = xp;
@@ -97,17 +148,22 @@ HomographyMatrix HomographyComputer::dlt_npoint(
     Eigen::JacobiSVD<Eigen::MatrixXf> svd(A, Eigen::ComputeFullV);
     Eigen::VectorXf h = svd.matrixV().col(8);
 
-    HomographyMatrix H;
-    H(0,0) = h(0); H(0,1) = h(1); H(0,2) = h(2);
-    H(1,0) = h(3); H(1,1) = h(4); H(1,2) = h(5);
-    H(2,0) = h(6); H(2,1) = h(7); H(2,2) = h(8);
+    Eigen::Matrix3f Hn;
+    Hn << h(0), h(1), h(2),
+          h(3), h(4), h(5),
+          h(6), h(7), h(8);
 
-    if (std::abs(H(2,2)) > 1e-10f) {
-        float s = 1.0f / H(2,2);
-        for (int r = 0; r < 3; r++)
-            for (int c = 0; c < 3; c++)
-                H(r,c) *= s;
+    // Denormalize: H_real = Td_inv * Hn * Ts
+    Eigen::Matrix3f H_real = Td.inverse() * Hn * Ts;
+
+    if (std::abs(H_real(2,2)) > 1e-10f) {
+        H_real /= H_real(2,2);
     }
+
+    HomographyMatrix H;
+    for (int r = 0; r < 3; r++)
+        for (int c = 0; c < 3; c++)
+            H(r,c) = H_real(r,c);
 
     return H;
 }
@@ -264,6 +320,7 @@ Image HomographyComputer::warp(const Image& source, const HomographyMatrix& H,
                 float sy = (H_inv(1, 0) * x + H_inv(1, 1) * y + H_inv(1, 2)) / w;
 
                 // Bilinear interpolation
+                if (!std::isfinite(sx) || !std::isfinite(sy)) continue;
                 if (sx < 0 || sx >= sw - 1 || sy < 0 || sy >= sh - 1) continue;
 
                 int ix = static_cast<int>(sx);
