@@ -38,3 +38,4 @@ nukex_add_test(test_contamination unit/fitting/test_contamination_fitter.cpp nuk
 nukex_add_test(test_kde          unit/fitting/test_kde_fitter.cpp         nukex4_fitting)
 nukex_add_test(test_model_selector unit/fitting/test_model_selector.cpp nukex4_fitting)
 nukex_add_test(test_weight_computer unit/classify/test_weight_computer.cpp nukex4_classify)
+nukex_add_test(test_pixel_selector unit/combine/test_pixel_selector.cpp nukex4_combine)
