@@ -28,6 +28,10 @@ void SpatialContext::compute(const Image& output, Cube& cube) const {
     int w = cube.width;
     int h = cube.height;
 
+    // Pre-allocate reusable buffer for neighborhood computation
+    int max_window = (2 * WINDOW_RADIUS + 1) * (2 * WINDOW_RADIUS + 1);
+    std::vector<float> neighborhood(max_window);
+
     for (int y = 0; y < h; y++) {
         for (int x = 0; x < w; x++) {
             auto& voxel = cube.at(x, y);
@@ -38,20 +42,17 @@ void SpatialContext::compute(const Image& output, Cube& cube) const {
             int y0 = std::max(0, y - WINDOW_RADIUS);
             int y1 = std::min(h - 1, y + WINDOW_RADIUS);
 
-            std::vector<float> neighborhood;
-            neighborhood.reserve(static_cast<size_t>((x1-x0+1) * (y1-y0+1)));
+            int nn = 0;
             for (int ny = y0; ny <= y1; ny++) {
                 for (int nx = x0; nx <= x1; nx++) {
                     float avg = 0.0f;
                     for (int ch = 0; ch < output.n_channels(); ch++) {
                         avg += output.at(nx, ny, ch);
                     }
-                    avg /= output.n_channels();
-                    neighborhood.push_back(avg);
+                    neighborhood[nn++] = avg / output.n_channels();
                 }
             }
 
-            int nn = static_cast<int>(neighborhood.size());
             if (nn > 0) {
                 voxel.local_background = biweight_location(neighborhood.data(), nn);
                 voxel.local_rms = mad(neighborhood.data(), nn) * 1.4826f;

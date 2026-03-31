@@ -16,6 +16,7 @@ TEST_CASE("OutputAssembler: quality map has 4 channels", "[assembler]") {
             v.distribution[0].true_signal_estimate = 0.5f;
             v.distribution[0].signal_uncertainty = 0.01f;
             v.distribution[0].confidence = 0.9f;
+            v.dominant_shape = DistributionShape::GAUSSIAN;
         }
 
     auto quality = OutputAssembler::assemble_quality_map(cube);
@@ -28,14 +29,14 @@ TEST_CASE("OutputAssembler: quality map has 4 channels", "[assembler]") {
     REQUIRE(quality.at(4, 4, 3) == Catch::Approx(0.0f));
 }
 
-TEST_CASE("OutputAssembler: shape channel encodes enum correctly", "[assembler]") {
+TEST_CASE("OutputAssembler: shape channel encodes dominant_shape correctly", "[assembler]") {
     auto config = ChannelConfig::from_mode(StackingMode::MONO_L);
     Cube cube(4, 4, config);
 
-    cube.at(0, 0).distribution[0].shape = DistributionShape::GAUSSIAN;
-    cube.at(1, 0).distribution[0].shape = DistributionShape::BIMODAL;
-    cube.at(2, 0).distribution[0].shape = DistributionShape::HEAVY_TAILED;
-    cube.at(3, 0).distribution[0].shape = DistributionShape::CONTAMINATED;
+    cube.at(0, 0).dominant_shape = DistributionShape::GAUSSIAN;
+    cube.at(1, 0).dominant_shape = DistributionShape::BIMODAL;
+    cube.at(2, 0).dominant_shape = DistributionShape::HEAVY_TAILED;
+    cube.at(3, 0).dominant_shape = DistributionShape::CONTAMINATED;
 
     auto quality = OutputAssembler::assemble_quality_map(cube);
     REQUIRE(quality.at(0, 0, 3) == Catch::Approx(0.0f));

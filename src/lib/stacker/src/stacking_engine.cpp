@@ -277,11 +277,42 @@ StackingEngine::Result StackingEngine::execute(
                         voxel.welford[ch].mean, voxel.welford[ch].std_dev());
                 }
 
-                // 3. Fit — model selection cascade
+                // 3. Accumulate voxel summary statistics from per-sample weights
+                if (ch == 0) {  // Per-voxel fields, computed from first channel
+                    uint16_t cloud_count = 0;
+                    uint16_t trail_count = 0;
+                    float worst_sigma = 0.0f;
+                    float best_sigma = 1e30f;
+                    float weight_sum = 0.0f;
+                    float exposure_sum = 0.0f;
+
+                    for (int i = 0; i < n; i++) {
+                        float sigma_score = (voxel.welford[ch].std_dev() > 1e-30f) ?
+                            std::fabs(pixel_values[i] - voxel.welford[ch].mean) / voxel.welford[ch].std_dev() : 0.0f;
+
+                        if (sigma_score > worst_sigma) worst_sigma = sigma_score;
+                        if (sigma_score < best_sigma) best_sigma = sigma_score;
+
+                        if (frame_stats[i].cloud_score < 1.0f) cloud_count++;
+                        if (sigma_score > 5.0f) trail_count++;  // extreme outlier -> likely trail
+
+                        weight_sum += pixel_weights[i];
+                        exposure_sum += frame_stats[i].exposure;
+                    }
+
+                    voxel.cloud_frame_count = cloud_count;
+                    voxel.trail_frame_count = trail_count;
+                    voxel.worst_sigma_score = worst_sigma;
+                    voxel.best_sigma_score = (best_sigma < 1e20f) ? best_sigma : 0.0f;
+                    voxel.mean_weight = (n > 0) ? weight_sum / n : 0.0f;
+                    voxel.total_exposure = exposure_sum;
+                }
+
+                // 4. Fit — model selection cascade
                 fitter.select(pixel_values.data(), pixel_weights.data(),
                               n, voxel, ch);
 
-                // 4. Select — extract output value + noise
+                // 5. Select — extract output value + noise
                 float out_val, out_noise, out_snr;
                 selector.select(voxel.distribution[ch],
                                 pixel_values.data(), pixel_weights.data(), n,
@@ -295,6 +326,17 @@ StackingEngine::Result StackingEngine::execute(
             }
 
             compute_dominant_shape(voxel, n_ch);
+
+            // Quality score (design spec Section 5.3)
+            float avg_snr = 0.0f;
+            for (int ch = 0; ch < n_ch; ch++) avg_snr += voxel.snr[ch];
+            avg_snr /= n_ch;
+            float cloud_fraction = (voxel.n_frames > 0) ?
+                static_cast<float>(voxel.cloud_frame_count) / voxel.n_frames : 0.0f;
+            voxel.quality_score = voxel.distribution[0].confidence
+                * (1.0f - cloud_fraction)
+                * std::min(1.0f, avg_snr / 50.0f);
+            voxel.confidence = voxel.distribution[0].confidence;
         }
     }
 
