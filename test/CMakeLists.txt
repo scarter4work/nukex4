@@ -36,3 +36,4 @@ nukex_add_test(test_student_t  unit/fitting/test_student_t_fitter.cpp  nukex4_fi
 nukex_add_test(test_gmm        unit/fitting/test_gmm_fitter.cpp       nukex4_fitting)
 nukex_add_test(test_contamination unit/fitting/test_contamination_fitter.cpp nukex4_fitting)
 nukex_add_test(test_kde          unit/fitting/test_kde_fitter.cpp         nukex4_fitting)
+nukex_add_test(test_model_selector unit/fitting/test_model_selector.cpp nukex4_fitting)
