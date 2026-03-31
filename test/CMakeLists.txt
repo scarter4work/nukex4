@@ -32,3 +32,6 @@ nukex_add_test(test_star_detector unit/alignment/test_star_detector.cpp nukex4_a
 nukex_add_test(test_homography     unit/alignment/test_homography.cpp     nukex4_alignment)
 nukex_add_test(test_frame_aligner unit/alignment/test_frame_aligner.cpp nukex4_alignment)
 nukex_add_test(test_robust_stats  unit/fitting/test_robust_stats.cpp   nukex4_fitting)
+nukex_add_test(test_student_t  unit/fitting/test_student_t_fitter.cpp  nukex4_fitting)
+nukex_add_test(test_gmm        unit/fitting/test_gmm_fitter.cpp       nukex4_fitting)
+nukex_add_test(test_contamination unit/fitting/test_contamination_fitter.cpp nukex4_fitting)
