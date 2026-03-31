@@ -58,7 +58,7 @@ std::vector<std::tuple<int, int, float>> StarDetector::find_local_maxima(
             for (int dy = -r; dy <= r && is_max; dy++) {
                 for (int dx = -r; dx <= r && is_max; dx++) {
                     if (dx == 0 && dy == 0) continue;
-                    if (image.at(x + dx, y + dy, 0) >= val) {
+                    if (image.at(x + dx, y + dy, 0) > val) {
                         is_max = false;
                     }
                 }
@@ -197,6 +197,46 @@ StarCatalog StarDetector::detect(const Image& image, const Config& config) {
         auto [rx, ry] = refine_centroid(image, ix, iy);
         star.x = rx;
         star.y = ry;
+
+        // Estimate FWHM from second moments of intensity around centroid.
+        // For a Gaussian PSF, FWHM = 2.355 * sigma (the Gaussian FWHM-sigma relation).
+        // We compute sigma_x and sigma_y independently, then use geometric mean.
+        {
+            int w = image.width();
+            int h = image.height();
+            int fwhm_radius = 3;
+            float sum_xx = 0.0f, sum_yy = 0.0f, sum_wt = 0.0f;
+            int icx = static_cast<int>(rx + 0.5f);
+            int icy = static_cast<int>(ry + 0.5f);
+
+            for (int dy = -fwhm_radius; dy <= fwhm_radius; dy++) {
+                for (int dx = -fwhm_radius; dx <= fwhm_radius; dx++) {
+                    int px = icx + dx;
+                    int py = icy + dy;
+                    if (px < 0 || px >= w || py < 0 || py >= h) continue;
+
+                    float val = image.at(px, py, 0) - background;
+                    if (val <= 0.0f) continue;
+
+                    float dxc = static_cast<float>(px) - rx;
+                    float dyc = static_cast<float>(py) - ry;
+                    sum_xx += val * dxc * dxc;
+                    sum_yy += val * dyc * dyc;
+                    sum_wt += val;
+                }
+            }
+
+            if (sum_wt > 1e-10f) {
+                float sigma_x = std::sqrt(sum_xx / sum_wt);
+                float sigma_y = std::sqrt(sum_yy / sum_wt);
+                float sigma = std::sqrt(sigma_x * sigma_y);
+                if (sigma > 0.1f) {
+                    star.fwhm_x = 2.355f * sigma_x;
+                    star.fwhm_y = 2.355f * sigma_y;
+                    star.fwhm = 2.355f * sigma;
+                }
+            }
+        }
 
         // Compute flux
         star.flux = compute_flux(image, rx, ry, background);

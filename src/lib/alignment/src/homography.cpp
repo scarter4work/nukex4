@@ -288,6 +288,16 @@ AlignmentResult HomographyComputer::compute(
     }
     result.match.rms_error = std::sqrt(sum_err2 / static_cast<float>(sx.size()));
 
+    // Degeneracy check: if the RMS error after DLT refinement on all inliers
+    // is much larger than the inlier threshold, the inlier set is degenerate
+    // (e.g. colinear stars) and the resulting homography is unreliable.
+    if (result.match.rms_error > 5.0f * config.inlier_threshold) {
+        result.alignment_failed = true;
+        result.weight_penalty = 0.5f;
+        result.H = HomographyMatrix::identity();
+        return result;
+    }
+
     // Check for meridian flip
     result.is_meridian_flipped = result.H.is_meridian_flip();
 
@@ -348,10 +358,22 @@ Image HomographyComputer::warp(const Image& source, const HomographyMatrix& H,
 
 HomographyMatrix HomographyComputer::correct_meridian_flip(
     const HomographyMatrix& H, int width, int height) {
-    // Pre-multiply H with 180-degree rotation about image center
-    // flip = [-1  0  w-1]
-    //        [ 0 -1  h-1]
-    //        [ 0  0    1]
+    // Pre-multiply H with 180-degree rotation F about image center to remove the flip.
+    //
+    // H maps source -> reference and contains a 180-degree flip component.
+    // Decompose H as H = F * T where F is the flip and T is the residual transform.
+    // We want to recover T = F_inv * H. Since F is a 180-degree rotation about
+    // the image center, F is its own inverse (F * F = I), so T = F * H.
+    //
+    // This is why pre-multiplication (F * H) is the correct order:
+    //   F * H = F * (F * T) = (F * F) * T = I * T = T
+    //
+    // Note: H * F would give (F * T) * F = F * T * F which is NOT T in general,
+    // because matrix multiplication is not commutative.
+    //
+    // flip F = [-1  0  w-1]
+    //          [ 0 -1  h-1]
+    //          [ 0  0    1]
     Eigen::Matrix3f He, Fe;
     for (int r = 0; r < 3; r++)
         for (int c = 0; c < 3; c++)
