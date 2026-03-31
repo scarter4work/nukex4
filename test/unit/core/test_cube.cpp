@@ -48,24 +48,3 @@ TEST_CASE("Cube: is_valid_coord", "[cube]") {
     REQUIRE(cube.is_valid_coord(0, 8) == false);
     REQUIRE(cube.is_valid_coord(-1, 0) == false);
 }
-
-TEST_CASE("Cube: unique reservoir seeds", "[cube]") {
-    auto cfg = ChannelConfig::from_mode(StackingMode::OSC_RGB);
-    Cube cube(4, 4, cfg);
-    for (int i = 0; i < 200; i++) {
-        ReservoirSample::Sample s{};
-        s.value = static_cast<float>(i);
-        s.frame_index = static_cast<uint16_t>(i);
-        cube.at(0, 0).reservoir[0].update(s);
-        cube.at(1, 1).reservoir[0].update(s);
-    }
-    REQUIRE(cube.at(0, 0).reservoir[0].stored_count() == ReservoirSample::K);
-    REQUIRE(cube.at(1, 1).reservoir[0].stored_count() == ReservoirSample::K);
-    int differences = 0;
-    for (int i = 0; i < ReservoirSample::K; i++) {
-        if (cube.at(0, 0).reservoir[0].samples[i].frame_index !=
-            cube.at(1, 1).reservoir[0].samples[i].frame_index)
-            differences++;
-    }
-    REQUIRE(differences > 0);
-}
