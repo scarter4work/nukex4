@@ -80,21 +80,35 @@ double KDEFitter::isj_bandwidth(const float* values, int n) {
 
     double h_silverman = 0.9 * sigma_hat * std::pow(n, -0.2);
 
+    // For large N, the O(N²) roughness estimation is too slow.
+    // Subsample to at most 100 points with a deterministic stride.
+    int sub_n = n;
+    std::vector<float> subsample;
+    if (n > 100) {
+        int step = n / 100;
+        subsample.reserve(100);
+        for (int i = 0; i < n; i += step) {
+            subsample.push_back(sorted[i]);
+        }
+        sub_n = static_cast<int>(subsample.size());
+    }
+    const float* sub_data = (n > 100) ? subsample.data() : sorted.data();
+
     // Roughness estimation via pilot bandwidth
     double h_pilot = 1.5 * h_silverman;
 
     // Estimate integral(f''²)dx using kernel second derivative
     // K''(z) = (z² - 1) · K(z) for Gaussian kernel
     double roughness = 0.0;
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            double z = (sorted[i] - sorted[j]) / h_pilot;
+    for (int i = 0; i < sub_n; i++) {
+        for (int j = 0; j < sub_n; j++) {
+            double z = (sub_data[i] - sub_data[j]) / h_pilot;
             double z2 = z * z;
             double k = std::exp(-0.5 * z2) / std::sqrt(2.0 * M_PI);
             roughness += (z2 - 1.0) * k / (h_pilot * h_pilot);
         }
     }
-    roughness /= (static_cast<double>(n) * n * h_pilot);
+    roughness /= (static_cast<double>(sub_n) * sub_n * h_pilot);
 
     if (std::fabs(roughness) < 1e-30) return h_silverman;
 

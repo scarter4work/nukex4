@@ -21,6 +21,11 @@ struct FrameStats {
     float fwhm               = 0.0f;
 
     float psf_weight         = 1.0f;
+
+    /// Frame-level cloud attenuation score (1.0 = clear, <1.0 = penalized).
+    /// Computed by the stacker between Phase A and Phase B using the global
+    /// median of per-frame medians as reference.
+    float cloud_score        = 1.0f;
 };
 
 } // namespace nukex

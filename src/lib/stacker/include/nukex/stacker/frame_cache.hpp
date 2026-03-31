@@ -3,6 +3,7 @@
 #include "nukex/io/image.hpp"
 #include <string>
 #include <cstdint>
+#include <atomic>
 
 namespace nukex {
 
@@ -41,7 +42,7 @@ public:
     int read_pixel(int x, int y, int ch, float* out_values) const;
 
     /// Number of frames written so far.
-    int n_frames_written() const { return n_frames_written_; }
+    int n_frames_written() const { return n_frames_written_.load(std::memory_order_relaxed); }
 
     int width() const { return width_; }
     int height() const { return height_; }
@@ -64,7 +65,7 @@ private:
     int height_ = 0;
     int n_channels_ = 0;
     int max_frames_ = 0;
-    int n_frames_written_ = 0;
+    std::atomic<int> n_frames_written_{0};
 
     /// Element offset for pixel (x, y), channel ch, frame f.
     size_t offset(int x, int y, int ch, int f) const {

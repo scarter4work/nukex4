@@ -217,6 +217,31 @@ StackingEngine::Result StackingEngine::execute(
         }
     }
 
+    // Compute frame-level cloud scores using median-of-medians as reference
+    {
+        std::vector<float> medians;
+        medians.reserve(n_frames);
+        for (int f = 0; f < n_frames; f++) {
+            if (frame_stats[f].median_luminance > 0.0f) {
+                medians.push_back(frame_stats[f].median_luminance);
+            }
+        }
+        float median_of_medians = 0.0f;
+        if (!medians.empty()) {
+            median_of_medians = median_inplace(medians.data(),
+                                               static_cast<int>(medians.size()));
+        }
+        WeightConfig wc_defaults;  // for cloud_threshold / cloud_penalty
+        for (int f = 0; f < n_frames; f++) {
+            if (median_of_medians > 1e-30f &&
+                frame_stats[f].median_luminance < wc_defaults.cloud_threshold * median_of_medians) {
+                frame_stats[f].cloud_score = wc_defaults.cloud_penalty;
+            } else {
+                frame_stats[f].cloud_score = 1.0f;
+            }
+        }
+    }
+
     // ═══ PHASE B — Analysis ══════════════════════════════════════════
 
     WeightComputer classifier(config_.weight_config);

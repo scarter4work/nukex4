@@ -79,6 +79,9 @@ FitResult GaussianMixtureFitter::fit(const float* values, const float* weights,
             double lp1 = std::log(pi1) + gaussian_log_pdf(x, mu1, sigma1);
             double lp2 = std::log(1.0 - pi1) + gaussian_log_pdf(x, mu2, sigma2);
             double max_lp = std::max(lp1, lp2);
+            // Guard: if sample is so far from both components that both log-pdfs
+            // are -inf, exp(-inf - (-inf)) = exp(NaN) = NaN. Assign equal responsibility.
+            if (!std::isfinite(max_lp)) { gamma[i] = 0.5; continue; }
             double sum_exp = std::exp(lp1 - max_lp) + std::exp(lp2 - max_lp);
             gamma[i] = std::exp(lp1 - max_lp) / sum_exp;
             ll += static_cast<double>(weights[i]) * (max_lp + std::log(sum_exp));

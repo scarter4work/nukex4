@@ -17,12 +17,9 @@ float WeightComputer::compute(float value, const FrameStats& frame_stats,
         w *= sigma_factor;
     }
 
-    if (frame_stats.median_luminance > 1e-30f) {
-        float lum_ratio = value / frame_stats.median_luminance;
-        if (lum_ratio < config_.cloud_threshold) {
-            w *= config_.cloud_penalty;
-        }
-    }
+    // Cloud attenuation: frame-level score precomputed by the stacker
+    // using the global median of per-frame medians as reference.
+    w *= frame_stats.cloud_score;
 
     return std::max(w, config_.weight_floor);
 }

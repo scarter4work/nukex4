@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <stdexcept>
 
+static_assert(sizeof(off_t) >= 8, "off_t must be 64-bit for large file support");
+
 namespace nukex {
 
 uint16_t FrameCache::encode(float value) {
@@ -80,7 +82,7 @@ FrameCache::FrameCache(FrameCache&& other) noexcept
       filepath_(std::move(other.filepath_)),
       width_(other.width_), height_(other.height_),
       n_channels_(other.n_channels_), max_frames_(other.max_frames_),
-      n_frames_written_(other.n_frames_written_)
+      n_frames_written_(other.n_frames_written_.load(std::memory_order_relaxed))
 {
     other.fd_ = -1;
     other.mapped_ = nullptr;
@@ -98,7 +100,8 @@ FrameCache& FrameCache::operator=(FrameCache&& other) noexcept {
         height_ = other.height_;
         n_channels_ = other.n_channels_;
         max_frames_ = other.max_frames_;
-        n_frames_written_ = other.n_frames_written_;
+        n_frames_written_.store(other.n_frames_written_.load(std::memory_order_relaxed),
+                                std::memory_order_relaxed);
         other.fd_ = -1;
         other.mapped_ = nullptr;
         other.mapped_size_ = 0;
@@ -110,6 +113,8 @@ void FrameCache::write_frame(int frame_index, const Image& aligned) {
     if (!mapped_) throw std::runtime_error("FrameCache: not mapped");
     if (frame_index < 0 || frame_index >= max_frames_)
         throw std::out_of_range("FrameCache: frame_index out of range");
+    if (aligned.width() != width_ || aligned.height() != height_ || aligned.n_channels() != n_channels_)
+        throw std::invalid_argument("FrameCache::write_frame: image dimensions do not match cache");
 
     for (int y = 0; y < height_; y++) {
         for (int x = 0; x < width_; x++) {
@@ -120,15 +125,16 @@ void FrameCache::write_frame(int frame_index, const Image& aligned) {
         }
     }
 
-    if (frame_index >= n_frames_written_) {
-        n_frames_written_ = frame_index + 1;
+    int current = n_frames_written_.load(std::memory_order_relaxed);
+    if (frame_index >= current) {
+        n_frames_written_.store(frame_index + 1, std::memory_order_relaxed);
     }
 }
 
 int FrameCache::read_pixel(int x, int y, int ch, float* out_values) const {
     if (!mapped_) return 0;
 
-    int n = n_frames_written_;
+    int n = n_frames_written_.load(std::memory_order_relaxed);
     size_t base = offset(x, y, ch, 0);
 
     // Contiguous uint16 values for this pixel/channel across all frames

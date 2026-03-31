@@ -36,12 +36,13 @@ TEST_CASE("WeightComputer: outlier beyond 3σ → reduced weight", "[classify]")
     REQUIRE(w >= 0.01f);
 }
 
-TEST_CASE("WeightComputer: cloud frame → cloud_penalty applied", "[classify]") {
+TEST_CASE("WeightComputer: cloud frame → cloud_score applied", "[classify]") {
     WeightComputer wc;
     FrameStats fs = make_clean_frame();
-    fs.median_luminance = 0.5f;
-    float w = wc.compute(0.30f, fs, 0.50f, 0.03f);
-    REQUIRE(w < 0.35f);
+    // Frame-level cloud score: stacker precomputes this from median-of-medians
+    fs.cloud_score = 0.30f;
+    float w = wc.compute(0.50f, fs, 0.50f, 0.03f);
+    REQUIRE(w == Catch::Approx(0.30f).margin(0.05f));
 }
 
 TEST_CASE("WeightComputer: failed alignment → weight halved", "[classify]") {

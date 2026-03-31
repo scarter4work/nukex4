@@ -7,12 +7,18 @@ namespace nukex {
 float PixelSelector::sample_variance(float value, const FrameStats& fs,
                                       float welford_var) {
     if (fs.has_noise_keywords) {
+        float g = std::max(fs.gain, 1e-10f);
         float rn = fs.read_noise;
-        float g = fs.gain;
-        if (g < 1e-10f) g = 1.0f;
-        float shot_noise_var = std::max(0.0f, value / g);
-        float read_noise_var = (rn * rn) / (g * g);
-        return read_noise_var + shot_noise_var;
+        // Convert normalized [0,1] value to ADU for CCD noise model.
+        // FITS 16-bit: full range = 65535 ADU.
+        float value_adu = value * 65535.0f;
+        // Poisson shot noise: variance in electrons = signal_electrons = value_adu * gain
+        // Read noise: variance in electrons = rn^2
+        // Total variance in ADU^2: value_adu / g + (rn / g)^2
+        float shot_var_adu = value_adu / g;
+        float read_var_adu = (rn * rn) / (g * g);
+        // Convert back to normalized^2 units: divide by 65535^2
+        return (shot_var_adu + read_var_adu) / (65535.0f * 65535.0f);
     }
     return welford_var;
 }

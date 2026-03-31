@@ -18,10 +18,15 @@ FrameStats make_frame(float rn, float g, bool has_kw = true) {
 }
 } // anonymous namespace
 
-TEST_CASE("PixelSelector::sample_variance: CCD noise model", "[combine]") {
+TEST_CASE("PixelSelector::sample_variance: CCD noise model in normalized units", "[combine]") {
     FrameStats fs = make_frame(3.0f, 1.5f);
     float var = PixelSelector::sample_variance(0.5f, fs, 0.0f);
-    REQUIRE(var == Catch::Approx(4.0f + 0.333f).margin(0.01f));
+    // value_adu = 0.5 * 65535 = 32767.5
+    // shot_var_adu = 32767.5 / 1.5 = 21845.0
+    // read_var_adu = 9 / 2.25 = 4.0
+    // total in normalized^2 = 21849 / 65535^2 ≈ 5.087e-6
+    float expected = 21849.0f / (65535.0f * 65535.0f);
+    REQUIRE(var == Catch::Approx(expected).margin(1e-8f));
 }
 
 TEST_CASE("PixelSelector::sample_variance: no keywords → Welford fallback", "[combine]") {
