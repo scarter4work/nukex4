@@ -33,7 +33,7 @@ struct ReservoirSample {
     };
 
     Sample   samples[K] = {};
-    int      count       = 0;
+    int64_t  count       = 0;
 
     void seed(uint64_t s) {
         rng_state = s;
@@ -42,18 +42,19 @@ struct ReservoirSample {
 
     void update(const Sample& s) {
         if (count < K) {
-            samples[count] = s;
+            samples[static_cast<int>(count)] = s;
         } else {
-            int j = static_cast<int>(next_random() % static_cast<uint64_t>(count + 1));
-            if (j < K) {
-                samples[j] = s;
+            // Cast to uint64_t for modulo to avoid signed overflow on count+1
+            uint64_t j = next_random() % static_cast<uint64_t>(count + 1);
+            if (j < static_cast<uint64_t>(K)) {
+                samples[static_cast<int>(j)] = s;
             }
         }
         count++;
     }
 
     int stored_count() const {
-        return (count < K) ? count : K;
+        return (count < K) ? static_cast<int>(count) : K;
     }
 
     void reset() {

@@ -37,12 +37,20 @@ FrameMetadata FITSReader::extract_metadata(void* fptr) {
     FrameMetadata m;
     fitsfile* f = static_cast<fitsfile*>(fptr);
 
-    // Dimensions
+    // Dimensions — reset status before each CFITSIO call block so a failure
+    // in one doesn't silently cause subsequent calls to no-op.
     int naxis = 0;
     long naxes[3] = {0, 0, 0};
     int status = 0;
     fits_get_img_dim(f, &naxis, &status);
+    if (status != 0) {
+        // Could not read image dimensions; reset and continue with defaults
+        status = 0;
+    }
     fits_get_img_size(f, 3, naxes, &status);
+    if (status != 0) {
+        status = 0;
+    }
     m.width  = static_cast<int>(naxes[0]);
     m.height = static_cast<int>(naxes[1]);
     m.bitpix = read_int_key(f, "BITPIX", 16);
@@ -153,11 +161,13 @@ FITSReadResult FITSReader::read(const std::string& filepath) {
         }
     }
 
-    // Normalize integer data to [0, 1]
+    // Normalize pixel data to [0, 1]
     int bitpix = 0;
-    fits_get_img_type(fptr, &bitpix, &status);
-    if (bitpix == BYTE_IMG || bitpix == SHORT_IMG || bitpix == LONG_IMG ||
-        bitpix == USHORT_IMG || bitpix == ULONG_IMG) {
+    int bitpix_status = 0;
+    fits_get_img_type(fptr, &bitpix, &bitpix_status);
+    if (bitpix_status == 0 &&
+        (bitpix == BYTE_IMG || bitpix == SHORT_IMG || bitpix == LONG_IMG ||
+         bitpix == USHORT_IMG || bitpix == ULONG_IMG)) {
         // CFITSIO applies BZERO/BSCALE automatically when reading as TFLOAT,
         // so 16-bit data with BZERO=32768 comes back as unsigned range [0, 65535].
         // Normalize to [0, 1].
@@ -167,6 +177,20 @@ FITSReadResult FITSReader::read(const std::string& filepath) {
             if (d[i] > max_val) max_val = d[i];
         }
         if (max_val > 0.0f) {
+            float scale = 1.0f / max_val;
+            result.image.apply([scale](float x) { return x * scale; });
+        }
+    } else if (bitpix_status == 0 &&
+               (bitpix == FLOAT_IMG || bitpix == DOUBLE_IMG)) {
+        // Float FITS files may contain raw ADU values (e.g. 0-65535) rather
+        // than normalized [0,1]. Scan for max and normalize if clearly not
+        // already in [0,1] range.
+        float max_val = 0.0f;
+        const float* d = result.image.data();
+        for (size_t i = 0; i < result.image.data_size(); i++) {
+            if (d[i] > max_val) max_val = d[i];
+        }
+        if (max_val > 1.5f) {
             float scale = 1.0f / max_val;
             result.image.apply([scale](float x) { return x * scale; });
         }

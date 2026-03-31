@@ -11,6 +11,9 @@ namespace nukex {
 /// uniform distributions with sample sizes N ≤ 1000 (reservoir K=64).
 /// Range is set from observed data via initialize_range(), then values
 /// are binned with clamping at edges.
+///
+/// Contract: Call initialize_range() before update() if data is outside [0, 1].
+/// The default range [0, 1] is only valid for already-normalized pixel data.
 struct PixelHistogram {
     static constexpr int N_BINS = 16;
 

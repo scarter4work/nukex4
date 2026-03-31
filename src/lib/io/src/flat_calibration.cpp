@@ -71,7 +71,16 @@ Image FlatCalibration::build_master_flat(const std::vector<std::string>& flat_pa
                 std::nth_element(pixel_values.begin(),
                                  pixel_values.begin() + n_flats / 2,
                                  pixel_values.end());
-                master.at(x, y, ch) = pixel_values[n_flats / 2];
+                float med = pixel_values[n_flats / 2];
+                // For even N, average the two central values (consistent
+                // with FlatCalibration::median).
+                if (n_flats % 2 == 0) {
+                    float lower = *std::max_element(
+                        pixel_values.begin(),
+                        pixel_values.begin() + n_flats / 2);
+                    med = (med + lower) * 0.5f;
+                }
+                master.at(x, y, ch) = med;
             }
         }
     }
@@ -87,13 +96,22 @@ void FlatCalibration::apply(Image& light, const Image& master_flat,
     }
 
     // For single-channel master flat applied to multi-channel light:
-    // divide each channel by the same flat.
+    // divide each channel by the same flat (luminance flat).
     // For matching channel counts: divide channel by channel.
+    // Any other combination is a user error — throw rather than silently
+    // falling back to channel 0.
     int flat_channels = master_flat.n_channels();
+    int light_channels = light.n_channels();
 
-    for (int ch = 0; ch < light.n_channels(); ch++) {
+    if (flat_channels != 1 && flat_channels != light_channels) {
+        throw std::invalid_argument(
+            "FlatCalibration::apply: flat has " + std::to_string(flat_channels) +
+            " channels but light has " + std::to_string(light_channels) +
+            " channels (expected 1 or matching count)");
+    }
+
+    for (int ch = 0; ch < light_channels; ch++) {
         int flat_ch = (flat_channels == 1) ? 0 : ch;
-        if (flat_ch >= flat_channels) flat_ch = 0;
 
         for (int y = 0; y < light.height(); y++) {
             for (int x = 0; x < light.width(); x++) {
