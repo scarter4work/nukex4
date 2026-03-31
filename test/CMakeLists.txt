@@ -39,3 +39,4 @@ nukex_add_test(test_kde          unit/fitting/test_kde_fitter.cpp         nukex4
 nukex_add_test(test_model_selector unit/fitting/test_model_selector.cpp nukex4_fitting)
 nukex_add_test(test_weight_computer unit/classify/test_weight_computer.cpp nukex4_classify)
 nukex_add_test(test_pixel_selector unit/combine/test_pixel_selector.cpp nukex4_combine)
+nukex_add_test(test_spatial_context unit/combine/test_spatial_context.cpp nukex4_combine)
