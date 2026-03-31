@@ -103,6 +103,7 @@ FitResult GaussianMixtureFitter::fit(const float* values, const float* weights,
         }
 
         double total_w = wsum1 + wsum2;
+        // Degenerate component collapse — converged stays false
         if (wsum1 < 1e-30 || wsum2 < 1e-30) break;
 
         mu1 = wmu1 / wsum1;
@@ -121,11 +122,12 @@ FitResult GaussianMixtureFitter::fit(const float* values, const float* weights,
         sigma2 = std::sqrt(std::max(wvar2 / wsum2, SIGMA_FLOOR * SIGMA_FLOOR));
         pi1 = wsum1 / total_w;
         pi1 = std::clamp(pi1, 0.001, 0.999);
-    }
 
-    if (!result.converged) {
-        result.converged = true;
-        result.log_likelihood = prev_ll;
+        // Reached iteration limit without convergence tolerance — accept result
+        if (iter == MAX_ITERATIONS - 1) {
+            result.converged = true;
+            result.log_likelihood = ll;
+        }
     }
 
     // Canonicalize: mu1 < mu2

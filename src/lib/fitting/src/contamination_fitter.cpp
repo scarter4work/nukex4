@@ -42,9 +42,14 @@ public:
 
         const double sigma  = std::exp(log_sigma);
 
-        // Recover ε from logit parametrization and clamp for safety
-        const double exp_logit = std::exp(logit_eps);
-        double eps = exp_logit / (1.0 + exp_logit);
+        // Recover ε from logit parametrization (numerically stable sigmoid)
+        double eps;
+        if (logit_eps >= 0.0) {
+            eps = 1.0 / (1.0 + std::exp(-logit_eps));
+        } else {
+            double e = std::exp(logit_eps);
+            eps = e / (1.0 + e);
+        }
         eps = std::clamp(eps, eps_min_, eps_max_);
 
         const double one_minus_eps = 1.0 - eps;
@@ -185,9 +190,15 @@ FitResult ContaminationFitter::fit(const float* values, const float* weights,
     // Extract fitted parameters
     const double mu        = params[0];
     const double sigma     = std::max(std::exp(params[1]), SIGMA_MIN);
-    const double exp_logit = std::exp(params[2]);
-    const double eps       = std::clamp(exp_logit / (1.0 + exp_logit),
-                                        EPS_MIN, EPS_MAX);
+    // Numerically stable sigmoid to prevent NaN when logit > 709
+    double eps;
+    if (params[2] >= 0.0) {
+        eps = 1.0 / (1.0 + std::exp(-params[2]));
+    } else {
+        double e = std::exp(params[2]);
+        eps = e / (1.0 + e);
+    }
+    eps = std::clamp(eps, EPS_MIN, EPS_MAX);
     const double one_minus_eps = 1.0 - eps;
 
     // Populate result
