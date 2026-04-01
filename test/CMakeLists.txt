@@ -13,7 +13,8 @@ function(nukex_add_test test_name test_source)
     target_include_directories(${test_name} PRIVATE
         "${CMAKE_SOURCE_DIR}/third_party/catch2"
     )
-    add_test(NAME ${test_name} COMMAND ${test_name})
+    add_test(NAME ${test_name} COMMAND ${test_name}
+             WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 endfunction()
 
 # Core library tests — each added when implemented (Tasks 4-10)
@@ -57,3 +58,4 @@ target_include_directories(test_util PUBLIC
 target_link_libraries(test_util PUBLIC nukex4_io nukex4_stretch)
 
 nukex_add_test(test_stretch_pipeline unit/stretch/test_stretch_pipeline.cpp nukex4_stretch)
+nukex_add_test(test_mtf unit/stretch/test_mtf.cpp nukex4_stretch test_util)
