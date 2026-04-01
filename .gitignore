@@ -24,6 +24,9 @@ Thumbs.db
 repository/*.tar.gz
 repository/*.xsgn
 
+# Test output (visual evaluation PNGs)
+test/output/*.png
+
 # Temporary
 *.tmp
 *.bak
