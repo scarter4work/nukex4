@@ -63,6 +63,7 @@ add_subdirectory(src/lib/fitting)
 add_subdirectory(src/lib/classify)
 add_subdirectory(src/lib/combine)
 add_subdirectory(src/lib/stacker)
+add_subdirectory(src/lib/stretch)
 
 option(NUKEX_BUILD_TESTS "Build unit and integration tests" ON)
 if(NUKEX_BUILD_TESTS)

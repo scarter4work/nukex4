@@ -1,0 +1,20 @@
+add_library(nukex4_stretch STATIC
+    src/stretch_pipeline.cpp
+    src/stretch_utils.cpp
+    src/mtf_stretch.cpp
+    src/arcsinh_stretch.cpp
+    src/log_stretch.cpp
+    src/rnc_stretch.cpp
+)
+
+target_include_directories(nukex4_stretch
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+)
+
+target_link_libraries(nukex4_stretch
+    PUBLIC nukex4_core nukex4_io
+)
+
+target_compile_features(nukex4_stretch PUBLIC cxx_std_17)

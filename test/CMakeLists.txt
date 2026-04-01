@@ -42,3 +42,18 @@ nukex_add_test(test_pixel_selector unit/combine/test_pixel_selector.cpp nukex4_c
 nukex_add_test(test_spatial_context unit/combine/test_spatial_context.cpp nukex4_combine)
 nukex_add_test(test_output_assembler unit/combine/test_output_assembler.cpp nukex4_combine)
 nukex_add_test(test_frame_cache unit/stacker/test_frame_cache.cpp nukex4_stacker)
+nukex_add_test(test_stacking_engine unit/stacker/test_stacking_engine.cpp nukex4_stacker)
+
+# Test utilities (PNG writer + test data loader)
+add_library(test_util STATIC
+    util/png_writer.cpp
+    util/test_data_loader.cpp
+)
+target_include_directories(test_util PUBLIC
+    "${CMAKE_SOURCE_DIR}/test/util"
+    "${CMAKE_SOURCE_DIR}/third_party/stb"
+    "${CMAKE_SOURCE_DIR}/third_party/catch2"
+)
+target_link_libraries(test_util PUBLIC nukex4_io nukex4_stretch)
+
+nukex_add_test(test_stretch_pipeline unit/stretch/test_stretch_pipeline.cpp nukex4_stretch)
