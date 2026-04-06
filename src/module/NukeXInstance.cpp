@@ -16,8 +16,6 @@
 namespace pcl
 {
 
-NukeXInstance* TheNukeXInstance = nullptr;
-
 NukeXInstance::NukeXInstance( const MetaProcess* m )
    : ProcessImplementation( m )
 {
@@ -92,7 +90,7 @@ bool NukeXInstance::ExecuteGlobal()
 {
    Console console;
    console.WriteLn( "<end><cbr><br>NukeX v4 — Distribution-Fitted Stacking" );
-   console.WriteLn( String().Format( "Processing %u light frame(s)", lightFrames.Length() ) );
+   console.WriteLn( String().Format( "Processing %zu light frame(s)", lightFrames.Length() ) );
 
    // Collect enabled file paths
    std::vector<std::string> light_paths;
@@ -115,9 +113,9 @@ bool NukeXInstance::ExecuteGlobal()
       return false;
    }
 
-   console.WriteLn( String().Format( "Light frames: %u enabled", light_paths.size() ) );
+   console.WriteLn( String().Format( "Light frames: %zu enabled", light_paths.size() ) );
    if ( !flat_paths.empty() )
-      console.WriteLn( String().Format( "Flat frames: %u enabled", flat_paths.size() ) );
+      console.WriteLn( String().Format( "Flat frames: %zu enabled", flat_paths.size() ) );
 
    // Configure stacking engine
    nukex::StackingEngine::Config config;
@@ -150,7 +148,7 @@ bool NukeXInstance::ExecuteGlobal()
                           32,    // bits per sample (float32)
                           true,  // float sample
                           nc >= 3, // color if 3+ channels
-                          true,  // create new window
+                          true,  // initialProcessing (records NukeX as creator)
                           "NukeX_stacked" );
 
       View view = window.MainView();

@@ -3,6 +3,7 @@
 
 #include "NukeXProcess.h"
 #include "NukeXParameters.h"
+#include <pcl/ErrorHandler.h>
 #include "NukeXInstance.h"
 #include "NukeXInterface.h"
 
@@ -41,7 +42,7 @@ IsoString NukeXProcess::Id() const
    return "NukeX";
 }
 
-IsoString NukeXProcess::Category() const
+IsoString NukeXProcess::Categories() const
 {
    return "ImageIntegration";
 }
@@ -90,7 +91,9 @@ ProcessImplementation* NukeXProcess::Create() const
 ProcessImplementation* NukeXProcess::Clone( const ProcessImplementation& p ) const
 {
    const NukeXInstance* instance = dynamic_cast<const NukeXInstance*>( &p );
-   return ( instance != nullptr ) ? new NukeXInstance( *instance ) : nullptr;
+   if ( instance == nullptr )
+      throw Error( "NukeX: Internal error - cannot clone non-NukeX instance" );
+   return new NukeXInstance( *instance );
 }
 
 bool NukeXProcess::CanProcessViews() const
@@ -110,7 +113,7 @@ bool NukeXProcess::IsAssignable() const
 
 bool NukeXProcess::NeedsInitialization() const
 {
-   return true;
+   return false;  // Instance constructor handles defaults
 }
 
 bool NukeXProcess::NeedsValidation() const

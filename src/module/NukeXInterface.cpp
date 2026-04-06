@@ -66,7 +66,7 @@ bool NukeXInterface::Launch( const MetaProcess&, const ProcessImplementation*, b
    }
 
    dynamic = false;
-   return &instance;
+   return true;
 }
 
 ProcessImplementation* NukeXInterface::NewProcess() const
@@ -294,7 +294,7 @@ void NukeXInterface::e_LightAdd( Button&, bool )
 {
    OpenFileDialog d;
    d.SetCaption( "NukeX: Add Light Frames" );
-   d.SetFilter( FileFilter( "FITS Files", ".fit;.fits;.fts" ) );
+   d.SetFilter( FileFilter( "FITS Files", StringList() << ".fit" << ".fits" << ".fts" ) );
    d.EnableMultipleSelections();
    if ( d.Execute() )
    {
@@ -354,7 +354,7 @@ void NukeXInterface::e_FlatAdd( Button&, bool )
 {
    OpenFileDialog d;
    d.SetCaption( "NukeX: Add Flat Frames" );
-   d.SetFilter( FileFilter( "FITS Files", ".fit;.fits;.fts" ) );
+   d.SetFilter( FileFilter( "FITS Files", StringList() << ".fit" << ".fits" << ".fts" ) );
    d.EnableMultipleSelections();
    if ( d.Execute() )
    {

@@ -46,7 +46,7 @@ public:
    String      cacheDirectory  = "/tmp";
 };
 
-extern NukeXInstance* TheNukeXInstance;
+// No singleton — PCL creates instances per-use via Process::Create()/Clone()
 
 } // namespace pcl
 

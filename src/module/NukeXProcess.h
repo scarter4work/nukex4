@@ -15,7 +15,7 @@ public:
    NukeXProcess();
 
    IsoString Id() const override;
-   IsoString Category() const override;
+   IsoString Categories() const override;
    uint32 Version() const override;
    String Description() const override;
    String IconImageSVGFile() const override;
