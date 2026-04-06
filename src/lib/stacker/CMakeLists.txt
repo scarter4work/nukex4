@@ -11,7 +11,7 @@ target_include_directories(nukex4_stacker
 
 target_link_libraries(nukex4_stacker
     PUBLIC nukex4_core nukex4_io nukex4_alignment nukex4_fitting
-           nukex4_classify nukex4_combine
+           nukex4_classify nukex4_combine nukex4_gpu
 )
 
 target_compile_definitions(nukex4_stacker PRIVATE _FILE_OFFSET_BITS=64)

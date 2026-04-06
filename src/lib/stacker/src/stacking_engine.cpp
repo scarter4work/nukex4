@@ -13,6 +13,7 @@
 #include "nukex/combine/pixel_selector.hpp"
 #include "nukex/combine/spatial_context.hpp"
 #include "nukex/combine/output_assembler.hpp"
+#include "nukex/gpu/gpu_executor.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -242,92 +243,38 @@ StackingEngine::Result StackingEngine::execute(
         }
     }
 
-    // ═══ PHASE B — Analysis ══════════════════════════════════════════
+    // ═══ PHASE B — Analysis (GPU-accelerated) ════════════════════════
 
-    WeightComputer classifier(config_.weight_config);
     ModelSelector fitter(config_.fitting_config);
-    PixelSelector selector;
 
     // Output images
     Image stacked(out_width, out_height, n_ch);
     Image noise_map(out_width, out_height, n_ch);
 
-    // Phase B pixel loop.
-    // Working buffers are allocated inside the pixel loop so each iteration
-    // owns its own storage. This makes the loop safe for future parallelization
-    // with std::for_each(std::execution::par_unseq, ...) once TBB is available.
+    // GPU executor handles: weight computation, robust stats, pixel selection.
+    // Distribution fitting stays on CPU (Ceres Solver).
+    GPUExecutor gpu(config_.gpu_config);
+
+    // Fitting callback — called per-voxel by the GPU executor after
+    // kernels 1+2 complete. Runs the Ceres-based model selection cascade.
+    auto fitting_fn = [&fitter](SubcubeVoxel& voxel,
+                                 const float* values, const float* weights,
+                                 int nf, int nc,
+                                 const FrameStats* /*fs*/) {
+        for (int ch = 0; ch < nc; ch++) {
+            fitter.select(values + ch * nf, weights + ch * nf, nf, voxel, ch);
+        }
+    };
+
+    gpu.execute_phase_b(cube, cache, frame_stats, config_.weight_config,
+                         fitting_fn, stacked, noise_map);
+
+    // Post-processing: dominant shape + quality scores
     for (int y = 0; y < out_height; y++) {
         for (int x = 0; x < out_width; x++) {
-            // Per-pixel working buffers (thread-safe: local to each pixel)
-            std::vector<float> pixel_values(n_frames);
-            std::vector<float> pixel_weights(n_frames);
-            std::vector<int> pixel_frame_indices(n_frames);
-
             auto& voxel = cube.at(x, y);
-
-            for (int ch = 0; ch < n_ch; ch++) {
-                // 1. Read all frame values from cache
-                int n = cache.read_pixel(x, y, ch, pixel_values.data());
-
-                // 2. Compute weights
-                for (int i = 0; i < n; i++) {
-                    pixel_frame_indices[i] = i;
-                    pixel_weights[i] = classifier.compute(
-                        pixel_values[i], frame_stats[i],
-                        voxel.welford[ch].mean, voxel.welford[ch].std_dev());
-                }
-
-                // 3. Accumulate voxel summary statistics from per-sample weights
-                if (ch == 0) {  // Per-voxel fields, computed from first channel
-                    uint16_t cloud_count = 0;
-                    uint16_t trail_count = 0;
-                    float worst_sigma = 0.0f;
-                    float best_sigma = 1e30f;
-                    float weight_sum = 0.0f;
-                    float exposure_sum = 0.0f;
-
-                    for (int i = 0; i < n; i++) {
-                        float sigma_score = (voxel.welford[ch].std_dev() > 1e-30f) ?
-                            std::fabs(pixel_values[i] - voxel.welford[ch].mean) / voxel.welford[ch].std_dev() : 0.0f;
-
-                        if (sigma_score > worst_sigma) worst_sigma = sigma_score;
-                        if (sigma_score < best_sigma) best_sigma = sigma_score;
-
-                        if (frame_stats[i].cloud_score < 1.0f) cloud_count++;
-                        if (sigma_score > 5.0f) trail_count++;  // extreme outlier -> likely trail
-
-                        weight_sum += pixel_weights[i];
-                        exposure_sum += frame_stats[i].exposure;
-                    }
-
-                    voxel.cloud_frame_count = cloud_count;
-                    voxel.trail_frame_count = trail_count;
-                    voxel.worst_sigma_score = worst_sigma;
-                    voxel.best_sigma_score = (best_sigma < 1e20f) ? best_sigma : 0.0f;
-                    voxel.mean_weight = (n > 0) ? weight_sum / n : 0.0f;
-                    voxel.total_exposure = exposure_sum;
-                }
-
-                // 4. Fit — model selection cascade
-                fitter.select(pixel_values.data(), pixel_weights.data(),
-                              n, voxel, ch);
-
-                // 5. Select — extract output value + noise
-                float out_val, out_noise, out_snr;
-                selector.select(voxel.distribution[ch],
-                                pixel_values.data(), pixel_weights.data(), n,
-                                frame_stats.data(), pixel_frame_indices.data(),
-                                voxel.welford[ch].variance(),
-                                out_val, out_noise, out_snr);
-
-                stacked.at(x, y, ch) = out_val;
-                noise_map.at(x, y, ch) = out_noise;
-                voxel.snr[ch] = out_snr;
-            }
-
             compute_dominant_shape(voxel, n_ch);
 
-            // Quality score (design spec Section 5.3)
             float avg_snr = 0.0f;
             for (int ch = 0; ch < n_ch; ch++) avg_snr += voxel.snr[ch];
             avg_snr /= n_ch;
@@ -340,9 +287,8 @@ StackingEngine::Result StackingEngine::execute(
         }
     }
 
-    // Spatial context
-    SpatialContext spatial;
-    spatial.compute(stacked, cube);
+    // Spatial context (GPU kernel 4)
+    gpu.execute_spatial_context(stacked, cube);
 
     // Quality map
     Image quality_map = OutputAssembler::assemble_quality_map(cube);

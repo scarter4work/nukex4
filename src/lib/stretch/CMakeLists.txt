@@ -5,6 +5,13 @@ add_library(nukex4_stretch STATIC
     src/arcsinh_stretch.cpp
     src/log_stretch.cpp
     src/rnc_stretch.cpp
+    src/ghs_stretch.cpp
+    src/ots_stretch.cpp
+    src/sas_stretch.cpp
+    src/lupton_stretch.cpp
+    src/veralux_stretch.cpp
+    src/clahe_stretch.cpp
+    src/photometric_stretch.cpp
 )
 
 target_include_directories(nukex4_stretch

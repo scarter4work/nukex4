@@ -15,4 +15,15 @@ Image load_m16_test_frame();
 /// Path to the M16 test data directory.
 const std::string& m16_data_dir();
 
+/// Prepare an image for stretch evaluation.
+///
+/// Raw single-frame data has background dominating 99%+ of the range.
+/// This simulates what the stacking pipeline produces:
+///   1. Subtract per-channel median (background removal)
+///   2. Clip at a high percentile (reject hot pixels)
+///   3. Normalize so signal fills [0, 1]
+///
+/// After this, stretches operate on representative data.
+void prepare_for_stretch(Image& img, float clip_percentile = 0.999f);
+
 }} // namespace nukex::test_util

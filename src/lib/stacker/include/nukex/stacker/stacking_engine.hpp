@@ -4,6 +4,7 @@
 #include "nukex/alignment/frame_aligner.hpp"
 #include "nukex/classify/weight_computer.hpp"
 #include "nukex/fitting/model_selector.hpp"
+#include "nukex/gpu/gpu_config.hpp"
 #include <string>
 #include <vector>
 
@@ -16,6 +17,7 @@ public:
         WeightConfig          weight_config;
         ModelSelector::Config fitting_config;
         std::string           cache_dir = "/tmp";
+        GPUExecutorConfig     gpu_config;
     };
 
     explicit StackingEngine(const Config& config);

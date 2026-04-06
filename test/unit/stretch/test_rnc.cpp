@@ -1,5 +1,6 @@
 #include "catch_amalgamated.hpp"
 #include "nukex/stretch/rnc_stretch.hpp"
+#include "nukex/stretch/arcsinh_stretch.hpp"
 #include "png_writer.hpp"
 #include "test_data_loader.hpp"
 #include <cmath>
@@ -85,9 +86,13 @@ TEST_CASE("RNC: visual output on M16", "[rnc][visual]") {
     auto img = test_util::load_m16_test_frame();
     if (img.empty()) { SKIP("M16 test data not available"); }
 
-    // Pre-stretch with arcsinh to make data visible, then apply RNC
-    float norm = std::asinh(500.0f);
-    img.apply([norm](float x) { return std::asinh(500.0f * x) / norm; });
+    test_util::prepare_for_stretch(img);
+
+    // RNC is a secondary stretch — apply arcsinh first to simulate a primary stretch
+    ArcSinhStretch pre;
+    pre.alpha = 500.0f;
+    pre.luminance_only = true;
+    pre.apply(img);
 
     RNCStretch s;
     s.gamma = 2.2f;

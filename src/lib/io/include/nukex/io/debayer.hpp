@@ -20,6 +20,28 @@ public:
     /// Returns a 3-channel image. Input must be single-channel.
     static Image debayer(const Image& raw, BayerPattern pattern);
 
+    /// Equalize Bayer sub-channel backgrounds before debayering.
+    ///
+    /// Astronomical data without dark/bias calibration has systematic offsets
+    /// between the four Bayer sub-pixels (R, Gr, Gb, B). This creates a
+    /// checkerboard pattern that becomes visible banding after aggressive
+    /// stretching. This function equalizes each sub-image's median to the
+    /// global median, removing the offset while preserving signal.
+    ///
+    /// Call this on the raw single-channel image BEFORE debayer().
+    /// Modifies the image in-place.
+    static void equalize_bayer_background(Image& raw, BayerPattern pattern);
+
+    /// Suppress Bayer-pitch banding with a gentle 3x3 median filter.
+    ///
+    /// Bilinear debayer creates alternating measured/interpolated values at
+    /// the 2-pixel Bayer pitch. This 3x3 median filter removes the structured
+    /// pattern while preserving edges (stars, nebula boundaries) better than
+    /// a box blur.
+    ///
+    /// Call this on the debayered RGB image AFTER debayer().
+    static void suppress_banding(Image& rgb);
+
 private:
     /// Bilinear interpolation for RGGB pattern.
     static void debayer_rggb(const Image& raw, Image& rgb);

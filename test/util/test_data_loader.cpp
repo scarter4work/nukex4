@@ -3,6 +3,8 @@
 #include "nukex/io/debayer.hpp"
 #include "nukex/core/channel_config.hpp"
 #include <filesystem>
+#include <vector>
+#include <algorithm>
 
 namespace nukex { namespace test_util {
 
@@ -38,10 +40,45 @@ Image load_m16_test_frame() {
         else if (result.metadata.bayer_pattern == "GRBG") bp = BayerPattern::GRBG;
         else if (result.metadata.bayer_pattern == "GBRG") bp = BayerPattern::GBRG;
 
-        return DebayerEngine::debayer(result.image, bp);
+        // Equalize Bayer sub-channel backgrounds to remove checkerboard banding
+        DebayerEngine::equalize_bayer_background(result.image, bp);
+
+        Image rgb = DebayerEngine::debayer(result.image, bp);
+
+        // Suppress bilinear debayer banding artifacts
+        DebayerEngine::suppress_banding(rgb);
+
+        return rgb;
     }
 
     return std::move(result.image);
+}
+
+void prepare_for_stretch(Image& img, float clip_percentile) {
+    int npix = img.width() * img.height();
+
+    for (int c = 0; c < img.n_channels(); c++) {
+        float* data = img.channel_data(c);
+
+        // Compute median (background estimate)
+        std::vector<float> sorted(data, data + npix);
+        std::nth_element(sorted.begin(), sorted.begin() + npix / 2, sorted.end());
+        float median = sorted[npix / 2];
+
+        // Compute clip level (reject hot pixels)
+        size_t clip_idx = static_cast<size_t>(npix * clip_percentile);
+        clip_idx = std::min(clip_idx, static_cast<size_t>(npix - 1));
+        std::nth_element(sorted.begin(), sorted.begin() + clip_idx, sorted.end());
+        float clip = sorted[clip_idx];
+
+        float range = clip - median;
+        if (range < 1e-10f) continue;
+
+        float inv_range = 1.0f / range;
+        for (int i = 0; i < npix; i++) {
+            data[i] = std::clamp((data[i] - median) * inv_range, 0.0f, 1.0f);
+        }
+    }
 }
 
 }} // namespace nukex::test_util

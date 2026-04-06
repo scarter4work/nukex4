@@ -104,6 +104,9 @@ TEST_CASE("ArcSinh: visual output on M16", "[arcsinh][visual]") {
     auto img = test_util::load_m16_test_frame();
     if (img.empty()) { SKIP("M16 test data not available"); }
 
+    // Background-subtract and normalize so signal fills [0, 1]
+    test_util::prepare_for_stretch(img);
+
     ArcSinhStretch s;
     s.alpha = 500.0f;
     s.luminance_only = true;

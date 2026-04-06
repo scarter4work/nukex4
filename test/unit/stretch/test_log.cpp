@@ -88,6 +88,8 @@ TEST_CASE("Log: visual output on M16", "[log][visual]") {
     auto img = test_util::load_m16_test_frame();
     if (img.empty()) { SKIP("M16 test data not available"); }
 
+    test_util::prepare_for_stretch(img);
+
     LogStretch s;
     s.alpha = 1000.0f;
     s.luminance_only = false;

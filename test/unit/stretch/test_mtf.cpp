@@ -1,5 +1,6 @@
 #include "catch_amalgamated.hpp"
 #include "nukex/stretch/mtf_stretch.hpp"
+#include "nukex/stretch/arcsinh_stretch.hpp"
 #include "png_writer.hpp"
 #include "test_data_loader.hpp"
 #include <cmath>
@@ -82,9 +83,13 @@ TEST_CASE("MTF: visual output on M16", "[mtf][visual]") {
     auto img = test_util::load_m16_test_frame();
     if (img.empty()) { SKIP("M16 test data not available"); }
 
-    // Apply arcsinh pre-stretch to bring data into visible range, then MTF
-    float norm = std::asinh(500.0f);
-    img.apply([norm](float x) { return std::asinh(500.0f * x) / norm; });
+    test_util::prepare_for_stretch(img);
+
+    // MTF is a secondary stretch — apply arcsinh first to simulate a primary stretch
+    ArcSinhStretch pre;
+    pre.alpha = 500.0f;
+    pre.luminance_only = true;
+    pre.apply(img);
 
     MTFStretch mtf;
     mtf.midtone = 0.15f;
