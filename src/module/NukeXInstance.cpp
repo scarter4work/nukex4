@@ -59,6 +59,25 @@ bool NukeXInstance::CanExecuteOn( const View&, String& whyNot ) const
    return false;
 }
 
+bool NukeXInstance::Validate( String& whyNot )
+{
+   if ( lightFrames.IsEmpty() )
+   {
+      whyNot = "No light frames specified.";
+      return false;
+   }
+   // Check that at least one frame is enabled
+   bool any_enabled = false;
+   for ( const auto& f : lightFrames )
+      if ( f.enabled ) { any_enabled = true; break; }
+   if ( !any_enabled )
+   {
+      whyNot = "No light frames are enabled.";
+      return false;
+   }
+   return true;
+}
+
 bool NukeXInstance::CanExecuteGlobal( String& whyNot ) const
 {
    if ( lightFrames.IsEmpty() )

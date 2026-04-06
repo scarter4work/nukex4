@@ -23,6 +23,7 @@ public:
    bool CanExecuteOn( const View&, String& whyNot ) const override;
    bool CanExecuteGlobal( String& whyNot ) const override;
    bool ExecuteGlobal() override;
+   bool Validate( String& whyNot ) override;
 
    void* LockParameter( const MetaParameter*, size_type tableRow ) override;
    bool AllocateParameter( size_type sizeOrLength, const MetaParameter*, size_type tableRow ) override;
