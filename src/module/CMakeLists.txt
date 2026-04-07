@@ -16,6 +16,7 @@ set(MODULE_SOURCES
     NukeXInstance.cpp
     NukeXInterface.cpp
     NukeXParameters.cpp
+    NukeXProgress.cpp
 )
 
 add_library(NukeX-pxm SHARED ${MODULE_SOURCES})
