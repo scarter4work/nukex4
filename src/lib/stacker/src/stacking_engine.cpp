@@ -1,4 +1,5 @@
 #include "nukex/stacker/stacking_engine.hpp"
+#include "nukex/core/progress_observer.hpp"
 #include "nukex/stacker/frame_cache.hpp"
 #include "nukex/core/cube.hpp"
 #include "nukex/core/channel_config.hpp"
@@ -78,8 +79,10 @@ void compute_dominant_shape(SubcubeVoxel& voxel, int n_ch) {
 
 StackingEngine::Result StackingEngine::execute(
     const std::vector<std::string>& light_paths,
-    const std::vector<std::string>& flat_paths)
+    const std::vector<std::string>& flat_paths,
+    ProgressObserver* progress)
 {
+    ProgressObserver& obs = progress ? *progress : null_progress_observer();
     Result result;
     if (light_paths.empty()) return result;
 

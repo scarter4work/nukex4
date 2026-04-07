@@ -5,6 +5,7 @@
 #include "nukex/classify/weight_computer.hpp"
 #include "nukex/fitting/model_selector.hpp"
 #include "nukex/gpu/gpu_config.hpp"
+#include "nukex/core/progress_observer.hpp"
 #include <string>
 #include <vector>
 
@@ -31,7 +32,8 @@ public:
     };
 
     Result execute(const std::vector<std::string>& light_paths,
-                   const std::vector<std::string>& flat_paths);
+                   const std::vector<std::string>& flat_paths,
+                   ProgressObserver* progress = nullptr);
 
 private:
     Config config_;
