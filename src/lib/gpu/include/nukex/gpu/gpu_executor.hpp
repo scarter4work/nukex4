@@ -7,6 +7,7 @@
 #include "nukex/gpu/gpu_cpu_fallback.hpp"
 #include "nukex/core/cube.hpp"
 #include "nukex/core/frame_stats.hpp"
+#include "nukex/core/progress_observer.hpp"
 #include "nukex/classify/weight_computer.hpp"
 #include "nukex/io/image.hpp"
 #include <vector>
@@ -53,12 +54,14 @@ public:
         const WeightConfig& weight_config,
         FittingFn fitting_fn,
         Image& stacked_output,
-        Image& noise_output);
+        Image& noise_output,
+        ProgressObserver* progress = nullptr);
 
     /// Run spatial context on the stacked output.
     void execute_spatial_context(
         const Image& stacked,
-        Cube& cube);
+        Cube& cube,
+        ProgressObserver* progress = nullptr);
 
     GPUBackend active_backend() const { return context_.backend(); }
     const GPUDeviceInfo& device_info() const { return context_.device_info(); }

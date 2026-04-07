@@ -1,5 +1,6 @@
 #include "nukex/gpu/gpu_executor.hpp"
 #include "nukex/stacker/frame_cache.hpp"
+#include "nukex/core/progress_observer.hpp"
 
 #if NUKEX_HAS_OPENCL
 #define CL_TARGET_OPENCL_VERSION 300
@@ -378,7 +379,10 @@ void GPUExecutor::execute_phase_b(
     const WeightConfig& weight_config,
     FittingFn fitting_fn,
     Image& stacked_output,
-    Image& noise_output) {
+    Image& noise_output,
+    ProgressObserver* progress) {
+
+    ProgressObserver& obs = progress ? *progress : null_progress_observer();
 
     int total_voxels = cube.total_pixels();
     int n_channels = cube.at(0, 0).n_channels;
@@ -459,7 +463,10 @@ void GPUExecutor::execute_phase_b(
 
 void GPUExecutor::execute_spatial_context(
     const Image& stacked,
-    Cube& cube) {
+    Cube& cube,
+    ProgressObserver* progress) {
+
+    ProgressObserver& obs = progress ? *progress : null_progress_observer();
 
     int w = stacked.width();
     int h = stacked.height();
