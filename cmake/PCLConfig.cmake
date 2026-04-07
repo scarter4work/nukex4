@@ -7,7 +7,7 @@ endif()
 set(PIXINSIGHT_DIR "/opt/PixInsight" CACHE PATH "Path to PixInsight installation")
 
 find_path(PCL_INCLUDE_DIR
-    NAMES pcl/PCL.h
+    NAMES pcl/MetaModule.h
     PATHS
         "${PCLDIR}/include"
         "${PIXINSIGHT_DIR}/include"

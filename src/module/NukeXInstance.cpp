@@ -5,8 +5,7 @@
 #include "NukeXParameters.h"
 #include "NukeXProcess.h"
 
-#include <pcl/Console.h>
-#include <pcl/StandardStatus.h>
+#include "NukeXProgress.h"
 #include <pcl/ImageWindow.h>
 #include <pcl/View.h>
 
@@ -88,9 +87,9 @@ bool NukeXInstance::CanExecuteGlobal( String& whyNot ) const
 
 bool NukeXInstance::ExecuteGlobal()
 {
-   Console console;
-   console.WriteLn( "<end><cbr><br>NukeX v4 — Distribution-Fitted Stacking" );
-   console.WriteLn( String().Format( "Processing %zu light frame(s)", lightFrames.Length() ) );
+   NukeXProgress progress;
+   progress.message( "NukeX v4 \xe2\x80\x94 Distribution-Fitted Stacking" );
+   progress.message( String().Format( "Processing %zu light frame(s)", lightFrames.Length() ).ToUTF8().c_str() );
 
    // Collect enabled file paths
    std::vector<std::string> light_paths;
@@ -109,33 +108,35 @@ bool NukeXInstance::ExecuteGlobal()
 
    if ( light_paths.empty() )
    {
-      console.WriteLn( "** No enabled light frames. Aborting." );
+      progress.message( "** No enabled light frames. Aborting." );
       return false;
    }
-
-   console.WriteLn( String().Format( "Light frames: %zu enabled", light_paths.size() ) );
-   if ( !flat_paths.empty() )
-      console.WriteLn( String().Format( "Flat frames: %zu enabled", flat_paths.size() ) );
 
    // Configure stacking engine
    nukex::StackingEngine::Config config;
    config.cache_dir = cacheDirectory.ToUTF8().c_str();
    config.gpu_config.force_cpu_fallback = !enableGPU;
 
-   // Execute pipeline
-   console.WriteLn( "Starting stacking pipeline..." );
+   // Execute pipeline with progress reporting
    nukex::StackingEngine engine( config );
-   auto result = engine.execute( light_paths, flat_paths );
+   auto result = engine.execute( light_paths, flat_paths, &progress );
 
-   if ( result.n_frames_processed == 0 )
+   // Check cancellation
+   if ( progress.is_cancelled() )
    {
-      console.WriteLn( "** No frames were processed. Check input files." );
+      progress.message( "** Cancelled by user." );
       return false;
    }
 
-   console.WriteLn( String().Format(
+   if ( result.n_frames_processed == 0 )
+   {
+      progress.message( "** No frames were processed. Check input files." );
+      return false;
+   }
+
+   progress.message( String().Format(
       "Stacking complete: %d frame(s) processed, %d failed alignment",
-      result.n_frames_processed, result.n_frames_failed_alignment ) );
+      result.n_frames_processed, result.n_frames_failed_alignment ).ToUTF8().c_str() );
 
    // Create output ImageWindow with the stacked result
    if ( !result.stacked.empty() )
@@ -148,14 +149,12 @@ bool NukeXInstance::ExecuteGlobal()
                           32,    // bits per sample (float32)
                           true,  // float sample
                           nc >= 3, // color if 3+ channels
-                          true,  // initialProcessing (records NukeX as creator)
+                          true,  // initialProcessing
                           "NukeX_stacked" );
 
       View view = window.MainView();
       ImageVariant v = view.Image();
 
-      // Copy stacked data to the PI image.
-      // We created a 32-bit float window, so the image is pcl::Image (Float32).
       if ( v.IsFloatSample() && v.BitsPerSample() == 32 )
       {
          pcl::Image& img = static_cast<pcl::Image&>( *v );
@@ -168,7 +167,7 @@ bool NukeXInstance::ExecuteGlobal()
       }
 
       window.Show();
-      console.WriteLn( "Stacked image opened." );
+      progress.message( "Stacked image opened." );
    }
 
    // Create noise map window
@@ -194,10 +193,10 @@ bool NukeXInstance::ExecuteGlobal()
       }
 
       nw.Show();
-      console.WriteLn( "Noise map opened." );
+      progress.message( "Noise map opened." );
    }
 
-   console.WriteLn( "<br>NukeX v4 done." );
+   progress.message( "NukeX v4 done." );
    return true;
 }
 
