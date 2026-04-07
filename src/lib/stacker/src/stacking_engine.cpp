@@ -135,28 +135,48 @@ StackingEngine::Result StackingEngine::execute(
 
     // ═══ PHASE A — Streaming Accumulation ════════════════════════════
 
+    obs.message("Frames: " + std::to_string(n_frames) + " light"
+                + (flat_paths.empty() ? "" : ", " + std::to_string(flat_paths.size()) + " flat"));
+    obs.begin_phase("Phase A: Loading frames", n_frames);
+
     for (int f = 0; f < n_frames; f++) {
+        std::string filename = light_paths[f];
+        auto slash = filename.rfind('/');
+        if (slash != std::string::npos) filename = filename.substr(slash + 1);
+        obs.advance(0, "Frame " + std::to_string(f + 1) + "/" + std::to_string(n_frames)
+                       + ": " + filename);
+
         // 1. Load
         auto read_result = (f == 0) ? std::move(first) : FITSReader::read(light_paths[f]);
-        if (!read_result.success) continue;
+        if (!read_result.success) {
+            obs.advance(1, "  skipped (read failed)");
+            continue;
+        }
 
         Image image = std::move(read_result.image);
         auto& meta = read_result.metadata;
 
         // 2. Debayer
         if (bayer != BayerPattern::NONE) {
+            obs.advance(0, "  debayering (" + meta.bayer_pattern + ")");
             image = DebayerEngine::debayer(image, bayer);
         }
 
         // 3. Flat correct
         if (!master_flat.empty()) {
+            obs.advance(0, "  flat correcting");
             FlatCalibration::apply(image, master_flat);
         }
 
         // 4. Align
+        obs.advance(0, "  aligning");
         auto aligned = aligner.align(image, f);
+        obs.advance(0, "  aligned (" + std::to_string(aligned.stars.stars.size()) + " stars"
+                       + (aligned.alignment.is_meridian_flipped ? ", meridian flipped" : "")
+                       + ")");
 
         // 5. Cache aligned frame
+        obs.advance(0, "  caching");
         cache.write_frame(f, aligned.image);
 
         // 6. Frame-level stats
@@ -178,6 +198,7 @@ StackingEngine::Result StackingEngine::execute(
         }
 
         // 7. Accumulate into cube
+        obs.advance(0, "  accumulating");
         for (int y = 0; y < out_height; y++) {
             for (int x = 0; x < out_width; x++) {
                 auto& voxel = cube.at(x, y);
@@ -196,7 +217,16 @@ StackingEngine::Result StackingEngine::execute(
 
         cube.n_frames_loaded++;
         result.n_frames_processed++;
+        obs.advance(1);
+
+        if (obs.is_cancelled()) {
+            obs.message("Cancelled during frame loading.");
+            obs.end_phase();
+            return result;
+        }
     }
+
+    obs.end_phase();
 
     if (result.n_frames_processed == 0) return result;
 
@@ -258,6 +288,14 @@ StackingEngine::Result StackingEngine::execute(
     // Distribution fitting stays on CPU (Ceres Solver).
     GPUExecutor gpu(config_.gpu_config);
 
+    if (gpu.active_backend() == GPUBackend::OPENCL) {
+        const auto& di = gpu.device_info();
+        obs.message("GPU: " + di.name + " (OpenCL, "
+                    + std::to_string(di.global_mem_bytes / (1024*1024)) + " MB)");
+    } else {
+        obs.message("GPU: CPU fallback");
+    }
+
     // Fitting callback — called per-voxel by the GPU executor after
     // kernels 1+2 complete. Runs the Ceres-based model selection cascade.
     auto fitting_fn = [&fitter](SubcubeVoxel& voxel,
@@ -270,14 +308,28 @@ StackingEngine::Result StackingEngine::execute(
     };
 
     gpu.execute_phase_b(cube, cache, frame_stats, config_.weight_config,
-                         fitting_fn, stacked, noise_map);
+                         fitting_fn, stacked, noise_map, &obs);
 
-    // Post-processing: dominant shape + quality scores
+    if (obs.is_cancelled()) {
+        obs.message("Cancelled during distribution fitting.");
+        return result;
+    }
+
+    // Post-processing: dominant shape + quality scores + spatial context
+    obs.begin_phase("Phase C: Post-processing", 3);
+
+    obs.advance(1, "dominant shape computation");
     for (int y = 0; y < out_height; y++) {
         for (int x = 0; x < out_width; x++) {
             auto& voxel = cube.at(x, y);
             compute_dominant_shape(voxel, n_ch);
+        }
+    }
 
+    obs.advance(1, "quality scores");
+    for (int y = 0; y < out_height; y++) {
+        for (int x = 0; x < out_width; x++) {
+            auto& voxel = cube.at(x, y);
             float avg_snr = 0.0f;
             for (int ch = 0; ch < n_ch; ch++) avg_snr += voxel.snr[ch];
             avg_snr /= n_ch;
@@ -291,7 +343,11 @@ StackingEngine::Result StackingEngine::execute(
     }
 
     // Spatial context (GPU kernel 4)
-    gpu.execute_spatial_context(stacked, cube);
+    obs.advance(0, "spatial context");
+    gpu.execute_spatial_context(stacked, cube, &obs);
+    obs.advance(1);
+
+    obs.end_phase();
 
     // Quality map
     Image quality_map = OutputAssembler::assemble_quality_map(cube);
