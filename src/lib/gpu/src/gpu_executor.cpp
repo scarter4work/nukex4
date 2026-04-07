@@ -397,14 +397,29 @@ void GPUExecutor::execute_phase_b(
 
     bool use_gpu = context_.is_gpu_available() && kernels_.is_compiled();
 
+    int total_batches = (total_voxels + batch_size - 1) / batch_size;
+    obs.begin_phase("Phase B: Distribution fitting", total_batches);
+    obs.advance(0, std::to_string(total_voxels) + " voxels, "
+                   + std::to_string(total_batches) + " batches");
+
+    std::string backend_tag = use_gpu ? " [GPU]" : " [CPU]";
+
     int processed = 0;
+    int batch_idx = 0;
     while (processed < total_voxels) {
         int count = std::min(batch_size, total_voxels - processed);
+        batch_idx++;
+
+        obs.advance(0, "Batch " + std::to_string(batch_idx) + "/"
+                       + std::to_string(total_batches) + " ("
+                       + std::to_string(count) + " voxels)");
 
         // Step 1: Extract voxel data into SoA buffers
         buf.extract_from_cube(cube, cache, processed, count, n_channels);
 
         // Steps 2-3: Weight computation + robust stats (GPU or CPU)
+        obs.advance(0, "  kernel 1: weight classification" + backend_tag);
+        obs.advance(0, "  kernel 2: robust statistics" + backend_tag);
         if (use_gpu) {
             execute_batch_gpu(buf, frame_stats.data(), weight_config,
                               count, n_channels, N);
@@ -417,6 +432,7 @@ void GPUExecutor::execute_phase_b(
         buf.writeback_classification(cube, processed, count, n_channels);
 
         // Step 5: CPU fitting (Ceres — cannot run on GPU)
+        obs.advance(0, "  fitting distributions (Ceres)");
         int w = cube.width;
         for (int vi = 0; vi < count; vi++) {
             int voxel_idx = processed + vi;
@@ -424,7 +440,6 @@ void GPUExecutor::execute_phase_b(
             int py = voxel_idx / w;
             auto& voxel = cube.at(px, py);
 
-            // Collect per-voxel values and weights in AoS order for the fitter
             std::vector<float> vals(n_channels * N);
             std::vector<float> wts(n_channels * N);
             for (int ch = 0; ch < n_channels; ch++) {
@@ -442,6 +457,7 @@ void GPUExecutor::execute_phase_b(
         buf.extract_distributions(cube, processed, count, n_channels);
 
         // Step 7: Pixel selection (GPU or CPU)
+        obs.advance(0, "  kernel 3: pixel selection" + backend_tag);
         if (use_gpu) {
             execute_select_gpu(buf, frame_stats.data(), count, n_channels, N);
         } else {
@@ -454,7 +470,17 @@ void GPUExecutor::execute_phase_b(
                                  stacked_output.data(), noise_output.data());
 
         processed += count;
+        obs.advance(1);  // batch complete, advance progress bar
+
+        // Cancellation check
+        if (obs.is_cancelled()) {
+            obs.message("Cancelled during batch " + std::to_string(batch_idx)
+                        + "/" + std::to_string(total_batches));
+            break;
+        }
     }
+
+    obs.end_phase();
 }
 
 // ══════════════════════════════════════════════════════════════════════
