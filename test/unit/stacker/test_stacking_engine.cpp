@@ -51,3 +51,144 @@ TEST_CASE("StackingEngine: M16 integration test", "[engine][integration][!mayfai
     REQUIRE(!result.quality_map.empty());
     REQUIRE(result.quality_map.n_channels() == 4);
 }
+
+#include "nukex/core/progress_observer.hpp"
+
+// ── Test helper: records all observer calls ──────────────────────
+
+class RecordingObserver : public nukex::ProgressObserver {
+public:
+    struct Event {
+        enum Type { BEGIN, ADVANCE, END, MESSAGE } type;
+        std::string text;
+        int value = 0;
+    };
+
+    std::vector<Event> events;
+    bool cancelled = false;
+    int cancel_after_advances = -1;  // cancel after N advance(steps>0) calls
+    int advance_count = 0;
+
+    void begin_phase(const std::string& name, int total) override {
+        events.push_back({Event::BEGIN, name, total});
+    }
+    void advance(int steps, const std::string& detail) override {
+        events.push_back({Event::ADVANCE, detail, steps});
+        if (steps > 0) {
+            advance_count++;
+            if (cancel_after_advances > 0 && advance_count >= cancel_after_advances) {
+                cancelled = true;
+            }
+        }
+    }
+    void end_phase() override {
+        events.push_back({Event::END, {}, 0});
+    }
+    void message(const std::string& text) override {
+        events.push_back({Event::MESSAGE, text, 0});
+    }
+    bool is_cancelled() const override { return cancelled; }
+
+    // Count how many BEGIN events have a matching END
+    bool all_phases_closed() const {
+        int depth = 0;
+        for (const auto& e : events) {
+            if (e.type == Event::BEGIN) depth++;
+            if (e.type == Event::END) depth--;
+            if (depth < 0) return false;  // extra END
+        }
+        return depth == 0;
+    }
+
+    int count_type(Event::Type t) const {
+        int n = 0;
+        for (const auto& e : events) if (e.type == t) n++;
+        return n;
+    }
+
+    int count_bar_advances() const {
+        int n = 0;
+        for (const auto& e : events)
+            if (e.type == Event::ADVANCE && e.value > 0) n++;
+        return n;
+    }
+};
+
+TEST_CASE("StackingEngine: observer receives no calls for empty input", "[engine][progress]") {
+    RecordingObserver obs;
+    StackingEngine::Config cfg;
+    cfg.cache_dir = "/tmp";
+    StackingEngine engine(cfg);
+
+    auto result = engine.execute({}, {}, &obs);
+    REQUIRE(result.n_frames_processed == 0);
+    // Empty input returns before any phases start
+    REQUIRE(obs.events.empty());
+}
+
+TEST_CASE("StackingEngine: observer phases are balanced", "[engine][progress][integration][!mayfail]") {
+    std::string data_dir = "/home/scarter4work/projects/processing/M16/";
+    if (!std::filesystem::exists(data_dir)) {
+        SKIP("M16 test data not available at " + data_dir);
+    }
+
+    std::vector<std::string> lights;
+    for (const auto& entry : std::filesystem::directory_iterator(data_dir)) {
+        auto ext = entry.path().extension().string();
+        if (ext == ".fits" || ext == ".fit") {
+            lights.push_back(entry.path().string());
+            if (lights.size() >= 3) break;
+        }
+    }
+    if (lights.size() < 3) SKIP("Not enough FITS files");
+
+    RecordingObserver obs;
+    StackingEngine::Config cfg;
+    cfg.cache_dir = "/tmp";
+    StackingEngine engine(cfg);
+
+    auto result = engine.execute(lights, {}, &obs);
+    REQUIRE(result.n_frames_processed >= 3);
+
+    // All begin_phase/end_phase pairs are balanced
+    REQUIRE(obs.all_phases_closed());
+
+    // At least 3 phases: A, B, C
+    REQUIRE(obs.count_type(RecordingObserver::Event::BEGIN) >= 3);
+
+    // Progress bar advances at least once per frame in Phase A
+    REQUIRE(obs.count_bar_advances() >= static_cast<int>(lights.size()));
+}
+
+TEST_CASE("StackingEngine: cancellation mid-Phase-A returns partial result", "[engine][progress][integration][!mayfail]") {
+    std::string data_dir = "/home/scarter4work/projects/processing/M16/";
+    if (!std::filesystem::exists(data_dir)) {
+        SKIP("M16 test data not available at " + data_dir);
+    }
+
+    std::vector<std::string> lights;
+    for (const auto& entry : std::filesystem::directory_iterator(data_dir)) {
+        auto ext = entry.path().extension().string();
+        if (ext == ".fits" || ext == ".fit") {
+            lights.push_back(entry.path().string());
+            if (lights.size() >= 5) break;
+        }
+    }
+    if (lights.size() < 5) SKIP("Need at least 5 FITS files");
+
+    RecordingObserver obs;
+    obs.cancel_after_advances = 2;  // Cancel after 2 frames
+
+    StackingEngine::Config cfg;
+    cfg.cache_dir = "/tmp";
+    StackingEngine engine(cfg);
+
+    auto result = engine.execute(lights, {}, &obs);
+
+    // Should have processed some but not all frames
+    REQUIRE(result.n_frames_processed >= 1);
+    REQUIRE(result.n_frames_processed < static_cast<int>(lights.size()));
+
+    // Phases should still be balanced (early return closes phases)
+    REQUIRE(obs.all_phases_closed());
+}
