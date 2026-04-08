@@ -192,3 +192,50 @@ TEST_CASE("StackingEngine: cancellation mid-Phase-A returns partial result", "[e
     // Phases should still be balanced (early return closes phases)
     REQUIRE(obs.all_phases_closed());
 }
+
+TEST_CASE("StackingEngine: cancellation mid-Phase-B returns partial result", "[engine][progress][integration][!mayfail]") {
+    std::string data_dir = "/home/scarter4work/projects/processing/M16/";
+    if (!std::filesystem::exists(data_dir)) {
+        SKIP("M16 test data not available at " + data_dir);
+    }
+
+    std::vector<std::string> lights;
+    for (const auto& entry : std::filesystem::directory_iterator(data_dir)) {
+        auto ext = entry.path().extension().string();
+        if (ext == ".fits" || ext == ".fit") {
+            lights.push_back(entry.path().string());
+            if (lights.size() >= 3) break;
+        }
+    }
+    if (lights.size() < 3) SKIP("Not enough FITS files");
+
+    // Set cancel_after_advances high enough to pass all of Phase A
+    // (one advance per frame = 3), then cancel during Phase B batches.
+    // Phase A produces 3 bar advances. Phase B starts after that.
+    // Cancel at advance 5 = during Phase B batch processing.
+    RecordingObserver obs;
+    obs.cancel_after_advances = 5;
+
+    StackingEngine::Config cfg;
+    cfg.cache_dir = "/tmp";
+    StackingEngine engine(cfg);
+
+    auto result = engine.execute(lights, {}, &obs);
+
+    // All frames should have been processed (Phase A completed)
+    REQUIRE(result.n_frames_processed == static_cast<int>(lights.size()));
+
+    // Phases should still be balanced (cancellation closes phases properly)
+    REQUIRE(obs.all_phases_closed());
+
+    // Should have cancellation message
+    bool found_cancel_msg = false;
+    for (const auto& e : obs.events) {
+        if (e.type == RecordingObserver::Event::MESSAGE &&
+            e.text.find("Cancelled") != std::string::npos) {
+            found_cancel_msg = true;
+            break;
+        }
+    }
+    REQUIRE(found_cancel_msg);
+}
