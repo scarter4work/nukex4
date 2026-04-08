@@ -5,10 +5,10 @@
       <copyright>Copyright (c) 2026 Scott Carter</copyright>
    </description>
    <platform os="linux" arch="x64" version="1.8.0:1.9.9">
-      <package fileName="20260407-linux-x64-NukeX.tar.gz" sha1="da2fd682564ec81dca54282884949bb05db07674" type="module" releaseDate="20260407">
+      <package fileName="20260407-linux-x64-NukeX.tar.gz" sha1="8726092d105ce152835497f8fb5c986e7be6963f" type="module" releaseDate="20260407">
          <title>NukeX</title>
          <description>NukeX v4 — Distribution-Fitted Stacking. Per-pixel distribution fitting with GPU acceleration and 10 stretch operations.</description>
       </package>
    </platform>
 </xri>
-<Signature developerId="scarter4work" timestamp="2026-04-06T20:53:27.654Z" encoding="Base64">8wmoXdsDBlS/p4OW84EilO5ChkRIJBZgPvFx1k8AQhoJmHkuZl8/fnlhM8xPEImhduQgrlKBzVGmLMtfQ6roDQ==</Signature>
+<Signature developerId="scarter4work" timestamp="2026-04-08T03:24:43.806Z" encoding="Base64">7SvWl17Tn6CdVuI+7IEMjKo2m2adD8F0Jy9P9ejPB0s708p8kLoQWvDCnUYaOeGZMABByRzx/pVtqs11rG1xAA==</Signature>
