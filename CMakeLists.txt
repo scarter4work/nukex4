@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.24)
 project(NukeX VERSION 4.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -55,6 +55,11 @@ option(NUKEX_BUILD_MODULE "Build the PixInsight module (requires PCL SDK)" OFF)
 if(NUKEX_BUILD_MODULE)
     include(PCLConfig)
 endif()
+
+# Distribution guardrail. When ON, subprojects hard-fail if they detect a dep
+# graph that won't load inside PixInsight (e.g. system cfitsio → libcurl →
+# OPENSSL_3.2.0 symbols that PI's bundled libssl can't resolve).
+option(NUKEX_RELEASE_BUILD "Distribution-ready build; hard-fails on deps that break PixInsight module loading" OFF)
 
 add_subdirectory(src/lib/core)
 add_subdirectory(src/lib/io)
