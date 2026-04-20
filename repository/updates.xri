@@ -5,10 +5,10 @@
       <copyright>Copyright (c) 2026 Scott Carter</copyright>
    </description>
    <platform os="linux" arch="x64" version="1.8.0:1.9.9">
-      <package fileName="20260420-linux-x64-NukeX.tar.gz" sha1="75438b01bd02ac10f4ffc0ad25b13721822e1da4" type="module" releaseDate="20260420">
+      <package fileName="20260420-linux-x64-NukeX.tar.gz" sha1="ad6f340890a55324fbd5f7641a75c9f30fd1a156" type="module" releaseDate="20260420">
          <title>NukeX</title>
-         <description>NukeX v4 — Distribution-Fitted Stacking. v4.0.0.4: stretch pipeline wired to output (NukeX_stretched window), metadata-driven Auto selection (FITS FILTER/BAYERPAT/NAXIS3 classification), primaryStretch + finishingStretch parameters replace stretchType + autoStretch.</description>
+         <description>NukeX v4 — Distribution-Fitted Stacking. v4.0.0.5: (1) Alignment fix — replaced positional nearest-neighbour matcher with Groth triangle similarity matching; multi-hour imaging sessions now align 0 failed frames vs. 61/65 before. (2) Phase B perf — per-voxel Ceres fitting parallelised with OpenMP; 9.35x wall-time speedup on reference workload (32.86 min → 3.51 min). (3) Fitting guard — Ceres cost function returns false on non-finite output, preventing the line_search.cc:705 CHECK abort that killed long stacks. (4) Progress observability — stderr stream + append log + 10-second heartbeat thread for headless liveness. (5) E2E validation harness and bitwise regression goldens.</description>
       </package>
    </platform>
 </xri>
-<Signature developerId="scarter4work" timestamp="2026-04-20T04:38:08.740Z" encoding="Base64">vQgTztUYmIpAMJo1+hCNrZzyhh0+x8T3j2XddAAPQa6v2TvCu0O/CF6RAl/EDQZcHyy/I79ruhnZ+5VqzBUaDA==</Signature>
+<Signature developerId="scarter4work" timestamp="2026-04-20T20:55:30.831Z" encoding="Base64">sPbvuPIadlSOvVVvdpVpSqW6tVv0y4cvEhXNR0DGtm4l1j4ksSM8SgqjRos3d9g5rz5QEl3lWTpjNX9DZ7/FAA==</Signature>
