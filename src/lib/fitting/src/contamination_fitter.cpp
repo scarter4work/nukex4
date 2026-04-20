@@ -112,6 +112,15 @@ public:
             gradient[2] = grad_logit;
         }
 
+        // Defensive: tell Ceres to back off instead of CHECK-failing the
+        // Wolfe line search when outputs go non-finite.
+        if (!std::isfinite(*cost)) return false;
+        if (gradient) {
+            if (!std::isfinite(gradient[0])
+             || !std::isfinite(gradient[1])
+             || !std::isfinite(gradient[2])) return false;
+        }
+
         return true;
     }
 

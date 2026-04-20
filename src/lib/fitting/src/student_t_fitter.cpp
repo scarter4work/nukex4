@@ -106,6 +106,18 @@ public:
             }
         }
 
+        // Defensive: if any output is non-finite (e.g. sigma underflowed to 0
+        // or an outlier produced an overflow), tell Ceres to back off this
+        // line-search step. Returning false here is much cheaper than the
+        // LOG(FATAL) CHECK in ceres/line_search.cc:705 when a NaN gradient
+        // reaches the Wolfe Zoom algorithm.
+        if (!std::isfinite(*cost)) return false;
+        if (gradient) {
+            if (!std::isfinite(gradient[0])
+             || !std::isfinite(gradient[1])
+             || !std::isfinite(gradient[2])) return false;
+        }
+
         return true;
     }
 
