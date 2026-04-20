@@ -9,7 +9,7 @@
 # Invoked by `make e2e`.  Kept in its own script because CMake's COMMAND
 # substitution does not handle nested `$$`/bash-c quoting cleanly.
 
-set -eu
+set -euo pipefail   # pipefail so `PixInsight.sh … | tee` surfaces PI crashes
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MANIFEST="${REPO}/test/fixtures/e2e_manifest.json"
@@ -29,9 +29,14 @@ rm -f /tmp/nukex_e2e_meta.txt /tmp/nukex_e2e_console.log
 OUTPUT_ROOT="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); print(m.get("output_root","/tmp/nukex_e2e"))' "${MANIFEST}")"
 rm -rf "${OUTPUT_ROOT}"
 
-/opt/PixInsight/bin/PixInsight.sh --automation-mode --force-exit \
-    "-r=${REPO}/tools/validate_e2e.js,manifest=${MANIFEST}${REGEN_ARG}" \
-    2>&1 | tee "${E2E_LOG}"
+# Cap the run so a hung harness can't block CI forever.  60 min is ~3×
+# the longest observed good E2E on NGC7635 (primary + 3 sweeps ≈ 20 min)
+# and ~1.7× the worst-case fresh-GPU-compile + cold-cache baseline.
+NUKEX_E2E_TIMEOUT="${NUKEX_E2E_TIMEOUT:-3600}"
+timeout --kill-after=30s "${NUKEX_E2E_TIMEOUT}" \
+    /opt/PixInsight/bin/PixInsight.sh --automation-mode --force-exit \
+        "-r=${REPO}/tools/validate_e2e.js,manifest=${MANIFEST}${REGEN_ARG}" \
+        2>&1 | tee "${E2E_LOG}"
 
 echo ""
 echo "========================================================================"

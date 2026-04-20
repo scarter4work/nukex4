@@ -22,7 +22,7 @@
 # Will refuse to proceed if the built .so is older than any src/ source
 # file (i.e. the build is stale).
 
-set -eu
+set -euo pipefail   # pipefail so failures of sha1sum / find are surfaced
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PI_DIR="${NUKEX_PI_DIR:-/opt/PixInsight}"
