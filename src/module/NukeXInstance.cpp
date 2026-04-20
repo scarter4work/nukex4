@@ -11,6 +11,9 @@
 
 // NukeX pipeline headers
 #include "nukex/stacker/stacking_engine.hpp"
+#include "nukex/stretch/stretch_pipeline.hpp"
+#include "fits_metadata.hpp"
+#include "stretch_factory.hpp"
 
 namespace pcl
 {
@@ -168,6 +171,60 @@ bool NukeXInstance::ExecuteGlobal()
 
       window.Show();
       progress.message( "Stacked image opened." );
+   }
+
+   // ── Stretch pipeline (Phase 7 wiring) ─────────────────────────
+   if ( !result.stacked.empty() && !light_paths.empty() )
+   {
+      nukex::FITSMetadata meta = nukex::read_fits_metadata( light_paths.front() );
+      std::string auto_log;
+      auto primary_op   = nukex::build_primary(
+          static_cast<nukex::PrimaryStretch>( primaryStretch ), meta, auto_log );
+      auto finishing_op = nukex::build_finishing(
+          static_cast<nukex::FinishingStretch>( finishingStretch ) );
+
+      if ( !auto_log.empty() )
+         progress.message( auto_log.c_str() );
+
+      // Deep copy — stretch is in-place; must not mutate result.stacked.
+      // Safe: nukex::Image stores pixels in std::vector<float>, so operator=
+      // performs a full element-wise deep copy (no shared buffer).
+      nukex::Image stretched = result.stacked;
+
+      nukex::StretchPipeline pipeline;
+      if ( primary_op )
+      {
+         primary_op->enabled  = true;
+         primary_op->position = 0;
+         pipeline.ops.push_back( std::move( primary_op ) );
+      }
+      if ( finishing_op )
+      {
+         finishing_op->enabled  = true;
+         finishing_op->position = 1;
+         pipeline.ops.push_back( std::move( finishing_op ) );
+      }
+      pipeline.execute( stretched );
+
+      int sw  = stretched.width();
+      int sh  = stretched.height();
+      int snc = stretched.n_channels();
+
+      ImageWindow sw_win( sw, sh, snc, 32, true, snc >= 3, true, "NukeX_stretched" );
+      View sv = sw_win.MainView();
+      ImageVariant svi = sv.Image();
+      if ( svi.IsFloatSample() && svi.BitsPerSample() == 32 )
+      {
+         pcl::Image& si = static_cast<pcl::Image&>( *svi );
+         for ( int ch = 0; ch < snc; ch++ )
+         {
+            const float* src = stretched.channel_data( ch );
+            float* dst = si.PixelData( ch );
+            ::memcpy( dst, src, sw * sh * sizeof( float ) );
+         }
+      }
+      sw_win.Show();
+      progress.message( "Stretched image opened." );
    }
 
    // Create noise map window
