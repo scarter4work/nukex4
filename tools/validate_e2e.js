@@ -322,25 +322,51 @@ function runCase(tc, manifest, out_root, regen, golden_dir) {
    }
    checks.sweep_distinct = sweep_distinct;
 
-   // Check 7: bitwise regression against golden pixel hashes.
-   // On regen=true, write the current hashes as the new golden.
-   // On regen=false, compare and fail on any mismatch.
+   // Check 7: bitwise regression against golden pixel hashes for BOTH
+   // primary outputs AND each sweep variant.  Primary catches regressions
+   // in stacking (alignment, Phase B fitting, the Auto stretch path);
+   // sweep catches regressions in specific named curves (GHS / MTF /
+   // ArcSinh).  On regen=true, rewrite the full golden; on regen=false,
+   // compare and fail on any mismatch.  Missing sweep entries in the
+   // golden are tolerated for back-compat with older one-level goldens.
    var golden_path = golden_dir + "/" + tc.name + ".json";
-   var current_hashes = collectPrimaryHashes(primary);
+   var current_primary = collectPrimaryHashes(primary);
+   var current_sweep = {};
+   for (var si = 0; si < sweep_results.length; si++) {
+      var sr = sweep_results[si];
+      if (sr.status === "ok" && sr.pixel_hashes && sr.pixel_hashes.stretched)
+         current_sweep[sr.label] = { stretched: sr.pixel_hashes.stretched.fnv1a_hex };
+   }
+
    var golden_check = { checked: false };
    if (regen) {
       ensureDir(golden_dir);
       File.writeTextFile(golden_path,
-         JSON.stringify({ primary: current_hashes }) + "\n");
+         JSON.stringify({ primary: current_primary, sweep: current_sweep }) + "\n");
       golden_check = { checked: false, wrote: golden_path };
    } else if (File.exists(golden_path)) {
       var g = readJson(golden_path);
       var match = true;
       var diffs = {};
-      for (var k in current_hashes) {
-         var got = current_hashes[k];
+      // Primary hashes
+      for (var k in current_primary) {
+         var got = current_primary[k];
          var want = g.primary ? g.primary[k] : undefined;
-         if (got !== want) { match = false; diffs[k] = { got: got, want: want }; }
+         if (got !== want) { match = false; diffs["primary." + k] = { got: got, want: want }; }
+      }
+      // Sweep hashes — only check labels that are PRESENT in the golden.
+      // Labels in the run but not in the golden don't count as regressions
+      // (graceful back-compat); labels in the golden but not in the run
+      // DO count as regressions (something disappeared).
+      if (g.sweep) {
+         for (var sk in g.sweep) {
+            var want_s = g.sweep[sk].stretched;
+            var got_s  = current_sweep[sk] ? current_sweep[sk].stretched : undefined;
+            if (got_s !== want_s) {
+               match = false;
+               diffs["sweep." + sk + ".stretched"] = { got: got_s, want: want_s };
+            }
+         }
       }
       golden_check = { checked: true, match: match, diffs: diffs, path: golden_path };
       checks.golden_match = match;
