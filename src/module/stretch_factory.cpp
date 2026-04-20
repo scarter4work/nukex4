@@ -15,12 +15,12 @@ std::unique_ptr<StretchOp> build_primary(PrimaryStretch e,
                                          const FITSMetadata& meta,
                                          std::string& out_log_line) {
     out_log_line.clear();
-    if (e == PrimaryStretch::Auto) {
-        auto sel = select_auto(classify_filter(meta));
-        out_log_line = std::move(sel.log_line);
-        return std::move(sel.op);
-    }
     switch (e) {
+        case PrimaryStretch::Auto: {
+            auto sel = select_auto(classify_filter(meta));
+            out_log_line = std::move(sel.log_line);
+            return std::move(sel.op);
+        }
         case PrimaryStretch::VeraLux: return std::make_unique<VeraLuxStretch>();
         case PrimaryStretch::GHS:     return std::make_unique<GHSStretch>();
         case PrimaryStretch::MTF:     return std::make_unique<MTFStretch>();
@@ -28,9 +28,9 @@ std::unique_ptr<StretchOp> build_primary(PrimaryStretch e,
         case PrimaryStretch::Log:     return std::make_unique<LogStretch>();
         case PrimaryStretch::Lupton:  return std::make_unique<LuptonStretch>();
         case PrimaryStretch::CLAHE:   return std::make_unique<CLAHEStretch>();
-        case PrimaryStretch::Auto:    break;
     }
-    return std::make_unique<VeraLuxStretch>();
+    [[maybe_unused]] std::unique_ptr<StretchOp> unreachable;
+    return unreachable;
 }
 
 std::unique_ptr<StretchOp> build_finishing(FinishingStretch /*e*/) {

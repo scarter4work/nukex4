@@ -8,6 +8,9 @@
 
 namespace nukex {
 
+// Library-layer enum that mirrors the PCL NXPrimaryStretch enum in
+// NukeXParameters.h (Task A6). Values MUST stay synchronized:
+// Auto=0, VeraLux=1, GHS=2, MTF=3, ArcSinh=4, Log=5, Lupton=6, CLAHE=7.
 enum class PrimaryStretch {
     Auto = 0, VeraLux, GHS, MTF, ArcSinh, Log, Lupton, CLAHE,
 };
