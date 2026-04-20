@@ -52,3 +52,18 @@ Rationale vs. finding #2:
 - Realistic conservative projection: **6–8× Phase B speedup** from 1 → 8 cores (the hyperthreaded 9th–16th threads add diminishing returns on compute-bound float math).
 - Ship bar is 1.5× — this optimization clears it by a margin that would be a design error to *not* ship.
 - Post-opt Phase B projection: **240–330 s (4–5.5 min)**, vs 1971 s baseline.
+
+## Actual result (2026-04-20)
+
+Post-optimization baseline on the same NGC7635 stack (release build, module signed + installed into PI):
+
+- Baseline Phase B:          **1,971,756 ms (32.86 min)**
+- Post-optimization Phase B: **210,882 ms (3.51 min)**
+- Speedup:                   **9.35×**
+- Ship bar (≥ 1.5×):         **PASS — exceeds bar by 6.2×**
+- Frames processed:          65 / 65
+- Failed alignment:          0
+
+Observed `%CPU` during Phase B: ~430% average (≈ 4.3 cores active on the 8-physical-core i7-11700K). Not full 800% — likely mix of dynamic-chunk scheduling overhead, Ceres internal serial sections (SVD in line-search), and memory-bandwidth effects. Nonetheless the real wall-time gain is well beyond the projection, suggesting the per-voxel work is lighter per-thread than expected when not contending for a single core's cache.
+
+Total wall-time (TOTAL_MS): 275,770 ms (4 min 36 s), vs 2,041,553 ms (34 min) pre-opt.
