@@ -23,6 +23,11 @@ if [ "${1:-}" = "regen" ] || [ "${NUKEX_E2E_REGEN:-}" = "1" ]; then
 fi
 
 rm -f /tmp/nukex_e2e_meta.txt /tmp/nukex_e2e_console.log
+# Belt-and-braces: wipe the harness output root so there is no chance of an
+# overwrite prompt from PI's saveAs during a regen.  The harness re-creates
+# per-case subdirs as needed.
+OUTPUT_ROOT="$(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); print(m.get("output_root","/tmp/nukex_e2e"))' "${MANIFEST}")"
+rm -rf "${OUTPUT_ROOT}"
 
 /opt/PixInsight/bin/PixInsight.sh --automation-mode --force-exit \
     "-r=${REPO}/tools/validate_e2e.js,manifest=${MANIFEST}${REGEN_ARG}" \

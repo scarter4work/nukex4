@@ -117,14 +117,17 @@ function fnvPixelHash(win) {
 }
 
 function saveAsFits(win, path) {
-   // Pattern used by many shipped PI scripts.  `queryOptions=false`
-   // avoids any GUI dialogs; `allowMessages=false` suppresses
-   // informational popups; strict=false lets PI pick format defaults;
-   // overwrite=true so successive runs don't error on an existing file.
+   // ImageWindow.saveAs( filePath, queryOptions, allowMessages, strict, verifyOverwrite )
+   //
+   // verifyOverwrite=true DOES prompt the user when the file already exists,
+   // which in headless --automation-mode still pops a modal dialog that
+   // blocks the harness until the user clicks.  We want silent overwrite:
+   // pass false.  (The run_e2e.sh driver also rms the output dir before
+   // invoking PI as a belt-and-braces check.)
    return win.saveAs(path, false /*queryOptions*/,
                      false /*allowMessages*/,
                      false /*strict*/,
-                     true  /*overwrite*/);
+                     false /*verifyOverwrite — silently overwrite*/);
 }
 
 function closeAllNukexWindows() {
