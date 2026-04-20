@@ -83,3 +83,24 @@ if(NUKEX_BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
 endif()
+
+# ═══════════════════════════════════════════════════════════════════════════
+# `make e2e` — runs tools/validate_e2e.js through PixInsight against the
+# manifest at test/fixtures/e2e_manifest.json.  The currently installed
+# NukeX-pxm.so in /opt/PixInsight/bin is what gets exercised, so make sure
+# to install the dev build first (sign + copy).  Set NUKEX_E2E_REGEN=1 to
+# refresh goldens instead of verifying.
+# ═══════════════════════════════════════════════════════════════════════════
+add_custom_target(e2e
+    COMMAND ${CMAKE_COMMAND} -E env
+        NUKEX_E2E_REGEN=$$NUKEX_E2E_REGEN
+        bash -c
+            "REGEN_ARG=\"\"; \
+             if [ \"$$NUKEX_E2E_REGEN\" = \"1\" ]; then REGEN_ARG=\",regen=1\"; fi; \
+             /opt/PixInsight/bin/PixInsight.sh --automation-mode --force-exit \
+               \"-r=${CMAKE_SOURCE_DIR}/tools/validate_e2e.js,manifest=${CMAKE_SOURCE_DIR}/test/fixtures/e2e_manifest.json$$REGEN_ARG\" \
+             2>&1 | tee ${CMAKE_BINARY_DIR}/e2e.log; \
+             cat /tmp/nukex_e2e_meta.txt"
+    COMMENT "Running E2E validation harness against installed NukeX module"
+    VERBATIM
+)
