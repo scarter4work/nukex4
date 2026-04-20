@@ -79,6 +79,7 @@ add_library(nukex4_module_testlib OBJECT
     "${CMAKE_SOURCE_DIR}/src/module/fits_metadata.cpp"
     "${CMAKE_SOURCE_DIR}/src/module/filter_classifier.cpp"
     "${CMAKE_SOURCE_DIR}/src/module/stretch_auto_selector.cpp"
+    "${CMAKE_SOURCE_DIR}/src/module/stretch_factory.cpp"
 )
 target_include_directories(nukex4_module_testlib PUBLIC
     "${CMAKE_SOURCE_DIR}/src/module"
@@ -90,3 +91,4 @@ target_link_libraries(nukex4_module_testlib PUBLIC cfitsio nukex4_stretch)
 nukex_add_test(test_fits_metadata unit/module/test_fits_metadata.cpp nukex4_module_testlib)
 nukex_add_test(test_filter_classifier unit/module/test_filter_classifier.cpp nukex4_module_testlib)
 nukex_add_test(test_stretch_auto_selector unit/module/test_stretch_auto_selector.cpp nukex4_module_testlib)
+nukex_add_test(test_stretch_factory unit/module/test_stretch_factory.cpp nukex4_module_testlib)
