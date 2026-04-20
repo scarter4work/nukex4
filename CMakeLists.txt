@@ -84,6 +84,12 @@ if(NUKEX_BUILD_TESTS)
     add_subdirectory(test)
 endif()
 
+# Release packaging (`make sign`, `make package`).  Always wired — the
+# NukeX-pxm target is always added by src/module/CMakeLists.txt in this
+# project, regardless of NUKEX_BUILD_MODULE, so the targets are safe to
+# include unconditionally.
+include(${CMAKE_SOURCE_DIR}/cmake/PackageAndSign.cmake)
+
 # ═══════════════════════════════════════════════════════════════════════════
 # `make e2e` — runs tools/validate_e2e.js through PixInsight against the
 # manifest at test/fixtures/e2e_manifest.json.  The currently installed
