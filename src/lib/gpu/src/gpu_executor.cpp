@@ -431,9 +431,24 @@ void GPUExecutor::execute_phase_b(
         // Step 4: Writeback classification + robust stats
         buf.writeback_classification(cube, processed, count, n_channels);
 
-        // Step 5: CPU fitting (Ceres — cannot run on GPU)
-        obs.advance(0, "  fitting distributions (Ceres)");
+        // Step 5: CPU fitting (Ceres — cannot run on GPU).
+        //
+        // The per-voxel loop is the hot section of Phase B (see
+        // docs/superpowers/plans/2026-04-19-phase7-perf-findings.md).
+        // Each iteration is independent:
+        //   - cube.at(px, py) addresses a unique (x, y) voxel per vi.
+        //   - The fitting_fn captured ModelSelector allocates its fitters
+        //     (StudentT/Contamination/GMM/KDE) as stack locals, so there is
+        //     no shared mutable state across threads.
+        //   - buf.pixel_values / buf.pixel_weights / frame_stats are
+        //     read-only for the duration of this loop.
+        //   - vals / wts are per-iteration stack locals.
+        // dynamic scheduling with a moderately large chunk keeps the
+        // heterogeneous per-voxel work balanced without excessive
+        // OpenMP scheduling overhead.
+        obs.advance(0, "  fitting distributions (Ceres, parallel)");
         int w = cube.width;
+        #pragma omp parallel for schedule(dynamic, 256)
         for (int vi = 0; vi < count; vi++) {
             int voxel_idx = processed + vi;
             int px = voxel_idx % w;

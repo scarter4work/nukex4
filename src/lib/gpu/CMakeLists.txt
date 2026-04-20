@@ -42,3 +42,11 @@ else()
 endif()
 
 target_compile_features(nukex4_gpu PUBLIC cxx_std_17)
+
+# OpenMP is used to parallelise the per-voxel Ceres fitting loop in
+# execute_phase_b().  The loop is the dominant cost in Phase B and each
+# iteration is independent (ModelSelector::select allocates fitters
+# per-call, voxels are disjoint cube cells).  Required — without it,
+# Phase B runs single-threaded on whatever core the OS schedules.
+find_package(OpenMP REQUIRED)
+target_link_libraries(nukex4_gpu PUBLIC OpenMP::OpenMP_CXX)
