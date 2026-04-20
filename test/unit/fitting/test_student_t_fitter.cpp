@@ -173,3 +173,64 @@ TEST_CASE("StudentTFitter: too few samples does not converge", "[student_t]") {
 
     REQUIRE_FALSE(result.converged);
 }
+
+// ============================================================
+// Test 6: Extreme outlier does not crash the fitter
+// A single value of 1e30 among normal data would push the gradient
+// (or cost) to inf/NaN on some Ceres line-search steps.  Before the
+// isfinite guard in Evaluate(), that reached ceres/line_search.cc:705
+// and CHECK-aborted the process 26 min into a 65-frame NGC7635 stack.
+// This test exercises the guard: fit must return — converged or not —
+// without throwing or aborting.
+// ============================================================
+TEST_CASE("StudentTFitter: extreme outlier does not crash", "[student_t]") {
+    constexpr int N = 64;
+    std::mt19937 rng(31337);
+    std::normal_distribution<float> dist(0.50f, 0.02f);
+
+    std::vector<float> values(N);
+    std::vector<float> weights(N, 1.0f);
+    for (int i = 0; i < N - 1; ++i) values[i] = dist(rng);
+    values[N - 1] = 1.0e30f;   // Pathological outlier.
+
+    double loc   = biweight_location(values.data(), N);
+    double scale = mad(values.data(), N) * 1.4826;
+
+    StudentTFitter fitter;
+    FitResult result = fitter.fit(values.data(), weights.data(), N, loc, scale);
+
+    // We don't care whether it converges — only that it returns
+    // without aborting the process and that any fitted parameters
+    // are finite.
+    if (result.converged) {
+        REQUIRE(std::isfinite(result.distribution.params.student_t.mu));
+        REQUIRE(std::isfinite(result.distribution.params.student_t.sigma));
+        REQUIRE(std::isfinite(result.distribution.params.student_t.nu));
+    }
+    SUCCEED("fit() returned instead of CHECK-aborting");
+}
+
+// ============================================================
+// Test 7: All-identical samples don't crash the fitter
+// Constant data has zero variance; sigma can collapse to a value
+// where log(nu*pi*sigma^2) + NLL terms go to -inf, and nearby
+// parameter probes produce NaN.  Guard must catch it.
+// ============================================================
+TEST_CASE("StudentTFitter: all-identical samples do not crash", "[student_t]") {
+    constexpr int N = 32;
+    std::vector<float> values(N, 0.42f);
+    std::vector<float> weights(N, 1.0f);
+
+    StudentTFitter fitter;
+    // robust_scale of zero would short-circuit via the n<5 guard in fit();
+    // use a tiny positive scale so we actually enter Ceres with nearly-
+    // constant data.
+    FitResult result = fitter.fit(values.data(), weights.data(), N, 0.42, 1e-6);
+
+    if (result.converged) {
+        REQUIRE(std::isfinite(result.distribution.params.student_t.mu));
+        REQUIRE(std::isfinite(result.distribution.params.student_t.sigma));
+        REQUIRE(std::isfinite(result.distribution.params.student_t.nu));
+    }
+    SUCCEED("fit() returned instead of CHECK-aborting");
+}

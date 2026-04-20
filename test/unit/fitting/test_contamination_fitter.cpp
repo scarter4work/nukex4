@@ -111,3 +111,35 @@ TEST_CASE("ContaminationFitter: AICc is finite for N=64", "[contamination]") {
     const double aicc_val = result.aicc();
     REQUIRE(std::isfinite(aicc_val));
 }
+
+
+// ============================================================
+// Pathological input: extreme outlier must not crash the fitter.
+// Guards in ContaminationNLL::Evaluate return false instead of
+// letting a NaN/inf cost or gradient reach Ceres' Wolfe Zoom,
+// which would LOG(FATAL) in ceres/line_search.cc:705.
+// ============================================================
+TEST_CASE("ContaminationFitter: extreme outlier does not crash",
+          "[contamination]") {
+    constexpr int N = 64;
+    std::mt19937 rng(4242);
+    std::normal_distribution<float> dist(0.50f, 0.02f);
+
+    std::vector<float> values(N);
+    std::vector<float> weights(N, 1.0f);
+    for (int i = 0; i < N - 1; ++i) values[i] = dist(rng);
+    values[N - 1] = 1.0e30f;
+
+    double loc   = biweight_location(values.data(), N);
+    double scale = mad(values.data(), N) * 1.4826;
+
+    ContaminationFitter fitter;
+    FitResult result = fitter.fit(values.data(), weights.data(), N, loc, scale);
+
+    if (result.converged) {
+        REQUIRE(std::isfinite(result.distribution.params.contamination.mu));
+        REQUIRE(std::isfinite(result.distribution.params.contamination.sigma));
+        REQUIRE(std::isfinite(result.distribution.params.contamination.contamination_frac));
+    }
+    SUCCEED("fit() returned instead of CHECK-aborting");
+}
