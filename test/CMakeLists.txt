@@ -73,3 +73,15 @@ nukex_add_test(test_gpu_context unit/gpu/test_gpu_context.cpp nukex4_gpu)
 nukex_add_test(test_gpu_cpu_fallback unit/gpu/test_gpu_cpu_fallback.cpp nukex4_gpu nukex4_stacker)
 nukex_add_test(test_gpu_kernels unit/gpu/test_gpu_kernels.cpp nukex4_gpu)
 nukex_add_test(test_gpu_agreement unit/gpu/test_gpu_agreement.cpp nukex4_gpu nukex4_stacker)
+
+# Module-layer tests (fits_metadata and future module code)
+add_library(nukex4_module_testlib OBJECT
+    "${CMAKE_SOURCE_DIR}/src/module/fits_metadata.cpp"
+)
+target_include_directories(nukex4_module_testlib PUBLIC
+    "${CMAKE_SOURCE_DIR}/src/module"
+    "${CMAKE_SOURCE_DIR}/src/lib/io/include"
+)
+target_link_libraries(nukex4_module_testlib PUBLIC cfitsio)
+
+nukex_add_test(test_fits_metadata unit/module/test_fits_metadata.cpp nukex4_module_testlib)
