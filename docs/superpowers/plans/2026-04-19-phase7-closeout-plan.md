@@ -1232,78 +1232,39 @@ git commit -m "build: NUKEX_PROFILING option adds -fno-omit-frame-pointer"
 ### Task B3: Capture Phase B baseline wall-time
 
 **Files:**
-- Create: `tools/capture_baseline.js`
+- `tools/capture_baseline.js` — already exists as of commit `41eb057` (Phase 7 A9), updated for PJSR quirks.
 - Create: `test/fixtures/phaseB_baseline_ms.txt`
 
-- [ ] **Step 1: Write the capture harness.**
+> **PJSR headless quirks (discovered 2026-04-20, see memory `reference_pjsr_automation_quirks.md`):**
+> 1. `File.environmentVariable()` does **NOT** see shell env. Use `jsArguments` via comma-separated `-r=<path>,key=val`.
+> 2. `Console.writeln` and C++ `Console()` output do **NOT** reach shell stdout under `--automation-mode`. Wrap in `Console.beginLog()` / `Console.endLog()` and write captured bytes to a file.
+> 3. Enum values with same integer collide on the prototype (`Auto` and `None` both = 0 → only one name exists). Use integer literals: `P.primaryStretch = 0; // Auto`.
+> 4. `File.appendFile` doesn't exist. Only `File.writeTextFile(path, str)` or `new File; openForAppending(...)`.
+>
+> The checked-in `tools/capture_baseline.js` already applies all of these. Refer to it for the canonical headless harness pattern.
 
-Validate every PJSR call against the `pjsr` MCP's `pjsr-analyze` tool as you write this file. Create `tools/capture_baseline.js`:
-
-```javascript
-// Run NukeX on a specified baseline stack and capture Phase B wall time.
-// Invocation: PixInsight.sh --automation-mode --force-exit -r=tools/capture_baseline.js
-// Env: NUKEX_BASELINE_STACK - directory containing FITS lights.
-
-function getEnv(name) {
-   try {
-      if (typeof File.environmentVariable === "function")
-         return File.environmentVariable(name) || "";
-   } catch (e) {}
-   return "";
-}
-
-var stackDir = getEnv("NUKEX_BASELINE_STACK");
-if (!stackDir) {
-   Console.criticalln("NUKEX_BASELINE_STACK not set");
-   throw new Error("missing env var");
-}
-
-function collectLights(dir) {
-   var pats = ["*.fit", "*.fits", "*.FIT", "*.FITS"];
-   var all = [];
-   for (var i = 0; i < pats.length; i++) {
-      var found = searchDirectory(dir + "/" + pats[i], false);
-      for (var j = 0; j < found.length; j++) all.push(found[j]);
-   }
-   return all;
-}
-
-var lights = collectLights(stackDir);
-Console.writeln("Baseline lights: " + lights.length);
-
-var P = new NukeX;
-var arr = [];
-for (var i = 0; i < lights.length; i++) arr.push([true, lights[i]]);
-P.lightFrames = arr;
-P.flatFrames = [];
-P.primaryStretch = NukeX.prototype.primaryStretch_Auto;
-P.finishingStretch = NukeX.prototype.finishingStretch_None;
-P.enableGPU = true;
-P.cacheDirectory = "/tmp";
-
-var start = new Date().getTime();
-P.executeGlobal();
-var elapsed = new Date().getTime() - start;
-Console.writeln("TOTAL_MS " + elapsed);
-```
+- [ ] **Step 1: (Done as of v4.0.0.4 + patch.) Capture harness is at `tools/capture_baseline.js`.**
 
 - [ ] **Step 2: Run against the baseline dataset.**
 
 ```bash
 cd /home/scarter4work/projects/nukex4
-BASELINE="$(ls -d ~/projects/processing/*/L 2>/dev/null | head -1)"
-echo "Baseline dir: $BASELINE"
+BASELINE="/mnt/qnap/astro_data/NGC7635/L/Lights"   # 65 LRGB mono, 200s Bin1x1
 test -d "$BASELINE" || { echo "no baseline found, pick manually"; exit 1; }
-export NUKEX_BASELINE_STACK="$BASELINE"
+rm -f /tmp/nukex_baseline_console.log /tmp/nukex_baseline_meta.txt
 /opt/PixInsight/bin/PixInsight.sh --automation-mode --force-exit \
-    -r=tools/capture_baseline.js 2>&1 | tee /tmp/baseline.log
+    "-r=$(pwd)/tools/capture_baseline.js,stack=$BASELINE" 2>&1 | tee /tmp/baseline.log
 ```
+
+Expected runtime: several minutes on RTX-class GPU. On completion, check `/tmp/nukex_baseline_meta.txt` has `STATUS ok`.
 
 - [ ] **Step 3: Extract Phase B time and write the fixture.**
 
 ```bash
-PHASE_B_MS=$(grep -oE "Phase B: [0-9]+ ms" /tmp/baseline.log | head -1 | grep -oE "[0-9]+")
-echo "Baseline: ${PHASE_B_MS} ms"
+# The C++ Phase B timer is captured in the PJSR log file, not shell stdout.
+PHASE_B_MS=$(grep -oE "Phase B: [0-9]+ ms" /tmp/nukex_baseline_console.log | head -1 | grep -oE "[0-9]+")
+echo "Baseline Phase B: ${PHASE_B_MS} ms"
+test -n "$PHASE_B_MS" || { echo "no Phase B line in log — run failed"; tail /tmp/nukex_baseline_console.log; exit 1; }
 mkdir -p test/fixtures
 echo "${PHASE_B_MS}" > test/fixtures/phaseB_baseline_ms.txt
 ```
@@ -1312,7 +1273,7 @@ echo "${PHASE_B_MS}" > test/fixtures/phaseB_baseline_ms.txt
 
 ```bash
 git add tools/capture_baseline.js test/fixtures/phaseB_baseline_ms.txt
-git commit -m "test: Phase B baseline wall-time + capture harness"
+git commit -m "test: Phase B baseline wall-time + PJSR-headless capture harness"
 ```
 
 ---
@@ -1350,13 +1311,14 @@ Follow the signing command from global CLAUDE.md if PI rejects unsigned modules.
 
 ```bash
 cd /home/scarter4work/projects/nukex4
-export NUKEX_BASELINE_STACK="<same dir as Task B3>"
+BASELINE="/mnt/qnap/astro_data/NGC7635/L/Lights"   # same as Task B3
+rm -f /tmp/nukex_baseline_console.log /tmp/nukex_baseline_meta.txt
 perf record -F 99 -g --call-graph dwarf -o /tmp/nukex_phaseB.data \
     /opt/PixInsight/bin/PixInsight.sh --automation-mode --force-exit \
-        -r=tools/capture_baseline.js 2>&1 | tee /tmp/perf_run.log
+        "-r=$(pwd)/tools/capture_baseline.js,stack=$BASELINE" 2>&1 | tee /tmp/perf_run.log
 ```
 
-Expected: `~50-200 MB` `nukex_phaseB.data`, log contains `Phase B: N ms`.
+Expected: `~50-200 MB` `nukex_phaseB.data`, and `/tmp/nukex_baseline_console.log` contains `Phase B: N ms`.
 
 - [ ] **Step 5: Generate the flamegraph.**
 
@@ -1445,15 +1407,19 @@ git commit -m "perf(fitting): <one-sentence description>"
 ```bash
 cd /home/scarter4work/projects/nukex4/build
 cmake --build . -j$(nproc)
-export NUKEX_BASELINE_STACK="<same as Task B3>"
+# Install the rebuilt module into PI first — see CLAUDE.md signing steps or re-run `make package`.
+cd /home/scarter4work/projects/nukex4
+BASELINE="/mnt/qnap/astro_data/NGC7635/L/Lights"   # same as Task B3
+rm -f /tmp/nukex_baseline_console.log /tmp/nukex_baseline_meta.txt
 /opt/PixInsight/bin/PixInsight.sh --automation-mode --force-exit \
-    -r=tools/capture_baseline.js 2>&1 | tee /tmp/postopt.log
+    "-r=$(pwd)/tools/capture_baseline.js,stack=$BASELINE" 2>&1 | tee /tmp/postopt.log
+cp /tmp/nukex_baseline_console.log /tmp/postopt_console.log
 ```
 
 - [ ] **Step 2: Check the speedup.**
 
 ```bash
-POST=$(grep -oE "Phase B: [0-9]+ ms" /tmp/postopt.log | head -1 | grep -oE "[0-9]+")
+POST=$(grep -oE "Phase B: [0-9]+ ms" /tmp/postopt_console.log | head -1 | grep -oE "[0-9]+")
 BASE=$(cat test/fixtures/phaseB_baseline_ms.txt)
 python3 -c "base=${BASE}; post=${POST}; s=base/post; print(f'Base {base} ms, Post {post} ms, Speedup {s:.2f}x — {\"PASS\" if s>=1.5 else \"FAIL\"}')"
 ```
