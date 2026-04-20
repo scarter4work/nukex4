@@ -25,9 +25,9 @@ FrameAligner::AlignedFrame FrameAligner::align(const Image& frame, int frame_ind
         return result;
     }
 
-    // Match stars to reference
+    // Match stars to reference using triangle similarity matching.
     auto matches = StarMatcher::match(result.stars, ref_catalog_,
-                                       config_.match_config.max_distance);
+                                       config_.match_config);
 
     // Compute homography
     result.alignment = HomographyComputer::compute(

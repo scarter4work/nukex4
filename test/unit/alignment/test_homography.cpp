@@ -4,21 +4,27 @@
 #include "nukex/alignment/star_detector.hpp"
 #include "nukex/io/image.hpp"
 #include <cmath>
+#include <random>
 
 using namespace nukex;
 
 TEST_CASE("HomographyComputer: identity from identical catalogs", "[homography]") {
-    // Two identical star catalogs should produce identity homography
+    // Triangle similarity matching requires non-collinear, non-grid-regular
+    // star positions (otherwise many triangles are congruent and vertex
+    // correspondences become ambiguous). Use deterministic random positions.
     StarCatalog cat;
+    std::mt19937 rng(2024);
+    std::uniform_real_distribution<float> px(20.0f, 1980.0f);
+    std::uniform_real_distribution<float> py(20.0f, 1980.0f);
     for (int i = 0; i < 20; i++) {
         Star s;
-        s.x = 50.0f + static_cast<float>(i % 5) * 80.0f;
-        s.y = 50.0f + static_cast<float>(i / 5) * 80.0f;
+        s.x = px(rng);
+        s.y = py(rng);
         s.flux = 100.0f - static_cast<float>(i);
         cat.stars.push_back(s);
     }
 
-    auto matches = StarMatcher::match(cat, cat, 5.0f);
+    auto matches = StarMatcher::match(cat, cat, StarMatcher::Config{});
     REQUIRE(matches.size() >= 8);
 
     auto result = HomographyComputer::compute(cat, cat, matches);
@@ -29,31 +35,33 @@ TEST_CASE("HomographyComputer: identity from identical catalogs", "[homography]"
 }
 
 TEST_CASE("HomographyComputer: translation recovery", "[homography]") {
-    // Source catalog shifted by (10, 5)
+    // Source catalog shifted by (10, 5). Random positions (not grid) so
+    // triangle descriptors are distinct.
     StarCatalog ref, src;
-    float dx = 10.0f, dy = 5.0f;
-
+    const float dx = 10.0f, dy = 5.0f;
+    std::mt19937 rng(4567);
+    std::uniform_real_distribution<float> px(30.0f, 1970.0f);
+    std::uniform_real_distribution<float> py(30.0f, 1970.0f);
     for (int i = 0; i < 20; i++) {
-        Star s;
-        s.x = 100.0f + static_cast<float>(i % 5) * 60.0f;
-        s.y = 100.0f + static_cast<float>(i / 5) * 60.0f;
-        s.flux = 100.0f;
-        ref.stars.push_back(s);
+        Star r;
+        r.x = px(rng);
+        r.y = py(rng);
+        r.flux = 100.0f - static_cast<float>(i);
+        ref.stars.push_back(r);
 
-        Star s2 = s;
-        s2.x += dx;
-        s2.y += dy;
-        src.stars.push_back(s2);
+        Star s = r;
+        s.x += dx;
+        s.y += dy;
+        src.stars.push_back(s);
     }
 
-    // Match with large enough distance to find shifted pairs
-    auto matches = StarMatcher::match(src, ref, 20.0f);
+    auto matches = StarMatcher::match(src, ref, StarMatcher::Config{});
     REQUIRE(matches.size() >= 8);
 
     auto result = HomographyComputer::compute(src, ref, matches);
     REQUIRE(result.match.success == true);
 
-    // Verify: transform a source point should give the reference point
+    // Verify: transforming (ref + (dx,dy)) via H should land near ref.
     auto [tx, ty] = result.H.transform(ref.stars[0].x + dx, ref.stars[0].y + dy);
     REQUIRE(tx == Catch::Approx(ref.stars[0].x).margin(0.5f));
     REQUIRE(ty == Catch::Approx(ref.stars[0].y).margin(0.5f));
@@ -107,20 +115,78 @@ TEST_CASE("HomographyComputer: meridian flip correction", "[homography]") {
     REQUIRE(corrected.is_identity(1.0f) == true);
 }
 
-TEST_CASE("StarMatcher: identical catalogs match all", "[star_matcher]") {
+TEST_CASE("StarMatcher: identical non-collinear catalogs match themselves", "[star_matcher]") {
+    // Triangle similarity matching requires non-collinear stars (a triangle
+    // needs three non-colinear vertices). Use pseudo-random positions seeded
+    // deterministically so the test is reproducible.
     StarCatalog cat;
-    for (int i = 0; i < 10; i++) {
+    std::mt19937 rng(123);
+    std::uniform_real_distribution<float> px(10.0f, 990.0f);
+    std::uniform_real_distribution<float> py(10.0f, 990.0f);
+    for (int i = 0; i < 30; i++) {
         Star s;
-        s.x = static_cast<float>(i * 50);
-        s.y = static_cast<float>(i * 30);
+        s.x = px(rng);
+        s.y = py(rng);
+        s.flux = 100.0f - static_cast<float>(i); // descending flux
         cat.stars.push_back(s);
     }
 
-    auto matches = StarMatcher::match(cat, cat, 5.0f);
-    REQUIRE(matches.size() == 10);
+    auto matches = StarMatcher::match(cat, cat, StarMatcher::Config{});
+    // Triangle matching over K=30 stars with 4060 triangles produces many
+    // redundant vertex votes — we should recover most or all correspondences.
+    REQUIRE(matches.size() >= 20);
 
-    // Each star should match itself
+    // Each returned correspondence must be a self-match.
     for (const auto& [si, ri] : matches) {
         REQUIRE(si == ri);
     }
+}
+
+TEST_CASE("StarMatcher: recovers correspondences under rotation + translation",
+          "[star_matcher]") {
+    // Generate 30 random reference stars, then transform them by a known
+    // rotation + translation to produce a "source" catalog. Triangle matching
+    // should recover most correspondences (descriptor is rotation-invariant).
+    StarCatalog ref, src;
+    std::mt19937 rng(456);
+    std::uniform_real_distribution<float> px(50.0f, 4950.0f);
+    std::uniform_real_distribution<float> py(50.0f, 4950.0f);
+
+    // 15° rotation about image center (2500, 2500), translation (137, -89).
+    const float theta = 15.0f * 3.14159265f / 180.0f;
+    const float cs = std::cos(theta);
+    const float sn = std::sin(theta);
+    const float cx = 2500.0f, cy = 2500.0f;
+    const float tx = 137.0f, ty = -89.0f;
+
+    for (int i = 0; i < 30; i++) {
+        Star r;
+        r.x = px(rng);
+        r.y = py(rng);
+        r.flux = 100.0f - static_cast<float>(i);
+        ref.stars.push_back(r);
+
+        // Apply rotation about center, then translation.
+        float dx = r.x - cx, dy = r.y - cy;
+        Star s = r;
+        s.x = cs * dx - sn * dy + cx + tx;
+        s.y = sn * dx + cs * dy + cy + ty;
+        // Small sub-pixel centroid noise (typical in practice).
+        s.x += std::uniform_real_distribution<float>(-0.5f, 0.5f)(rng);
+        s.y += std::uniform_real_distribution<float>(-0.5f, 0.5f)(rng);
+        src.stars.push_back(s);
+    }
+
+    StarMatcher::Config cfg; // defaults
+    auto matches = StarMatcher::match(src, ref, cfg);
+    REQUIRE(matches.size() >= 20);
+
+    // Correspondences must be self-index (star i in ref maps to star i in src)
+    // because we constructed them that way.
+    int correct = 0;
+    for (const auto& [si, ri] : matches)
+        if (si == ri) correct++;
+    // Allow a couple of near-coincidence misses due to noise-induced descriptor
+    // jitter, but the vast majority must be correct.
+    REQUIRE(correct >= static_cast<int>(matches.size() * 0.9f));
 }
