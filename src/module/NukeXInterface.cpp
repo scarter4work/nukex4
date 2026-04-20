@@ -113,14 +113,22 @@ NukeXInterface::GUIData::GUIData( NukeXInterface& w )
    LightFrames_TreeBox.SetHeaderText( 1, "Enabled" );
    LightFrames_TreeBox.EnableAlternateRowColor();
 
+   LightFrames_TreeBox.SetToolTip(
+      "Light frames to stack.  The first enabled frame becomes the alignment "
+      "reference (H = identity); subsequent frames are aligned to it via "
+      "triangle-similarity star matching.  Double-click a row to toggle its "
+      "Enabled flag." );
    LightFrames_Add_Button.SetText( "Add" );
+   LightFrames_Add_Button.SetToolTip( "Add FITS files (.fit/.fits) to the light frames list." );
    LightFrames_Add_Button.OnClick( (Button::click_event_handler)&NukeXInterface::e_LightAdd, w );
    LightFrames_Remove_Button.SetText( "Remove" );
+   LightFrames_Remove_Button.SetToolTip( "Remove the currently selected row(s) from the list." );
    LightFrames_Remove_Button.OnClick( (Button::click_event_handler)&NukeXInterface::e_LightRemove, w );
    LightFrames_Clear_Button.SetText( "Clear" );
+   LightFrames_Clear_Button.SetToolTip( "Clear all light frames." );
    LightFrames_Clear_Button.OnClick( (Button::click_event_handler)&NukeXInterface::e_LightClear, w );
    LightFrames_SelectAll_Button.SetText( "Toggle All" );
-   LightFrames_SelectAll_Button.SetToolTip( "Enable/disable all light frames" );
+   LightFrames_SelectAll_Button.SetToolTip( "Enable/disable all light frames in one click." );
    LightFrames_SelectAll_Button.OnClick( (Button::click_event_handler)&NukeXInterface::e_LightSelectAll, w );
 
    LightFrames_Count_Label.SetText( "0 frames" );
@@ -152,11 +160,18 @@ NukeXInterface::GUIData::GUIData( NukeXInterface& w )
    FlatFrames_TreeBox.SetHeaderText( 1, "Enabled" );
    FlatFrames_TreeBox.EnableAlternateRowColor();
 
+   FlatFrames_TreeBox.SetToolTip(
+      "Optional flat-field frames.  Enabled flats are combined into a master "
+      "flat and applied per-channel before alignment.  Leave empty if you "
+      "have no flats — NukeX will skip calibration." );
    FlatFrames_Add_Button.SetText( "Add" );
+   FlatFrames_Add_Button.SetToolTip( "Add FITS files (.fit/.fits) to the flat frames list." );
    FlatFrames_Add_Button.OnClick( (Button::click_event_handler)&NukeXInterface::e_FlatAdd, w );
    FlatFrames_Remove_Button.SetText( "Remove" );
+   FlatFrames_Remove_Button.SetToolTip( "Remove the currently selected row(s) from the list." );
    FlatFrames_Remove_Button.OnClick( (Button::click_event_handler)&NukeXInterface::e_FlatRemove, w );
    FlatFrames_Clear_Button.SetText( "Clear" );
+   FlatFrames_Clear_Button.SetToolTip( "Clear all flat frames." );
    FlatFrames_Clear_Button.OnClick( (Button::click_event_handler)&NukeXInterface::e_FlatClear, w );
 
    FlatFrames_Count_Label.SetText( "0 frames" );
