@@ -19,6 +19,7 @@ set(MODULE_SOURCES
     NukeXProgress.cpp
     fits_metadata.cpp
     filter_classifier.cpp
+    stretch_auto_selector.cpp
 )
 
 add_library(NukeX-pxm SHARED ${MODULE_SOURCES})
