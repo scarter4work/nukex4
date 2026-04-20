@@ -40,8 +40,8 @@ public:
 
    frame_list  lightFrames;
    frame_list  flatFrames;
-   pcl_enum    stretchType     = 0;    // NXStretchType::VeraLux
-   pcl_bool    autoStretch     = true;
+   pcl_enum    primaryStretch    = 0;  // NXPrimaryStretch::Auto
+   pcl_enum    finishingStretch  = 0;  // NXFinishingStretch::None
    pcl_bool    enableGPU       = true;
    String      cacheDirectory  = "/tmp";
 };

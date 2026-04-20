@@ -33,8 +33,8 @@ void NukeXInstance::Assign( const ProcessImplementation& p )
    {
       lightFrames    = x->lightFrames;
       flatFrames     = x->flatFrames;
-      stretchType    = x->stretchType;
-      autoStretch    = x->autoStretch;
+      primaryStretch   = x->primaryStretch;
+      finishingStretch = x->finishingStretch;
       enableGPU      = x->enableGPU;
       cacheDirectory = x->cacheDirectory;
    }
@@ -208,8 +208,8 @@ void* NukeXInstance::LockParameter( const MetaParameter* p, size_type tableRow )
    if ( p == TheNXLightFrameEnabledParameter ) return &lightFrames[tableRow].enabled;
    if ( p == TheNXFlatFramePathParameter )     return flatFrames[tableRow].path.Begin();
    if ( p == TheNXFlatFrameEnabledParameter )  return &flatFrames[tableRow].enabled;
-   if ( p == TheNXStretchTypeParameter )       return &stretchType;
-   if ( p == TheNXAutoStretchParameter )       return &autoStretch;
+   if ( p == TheNXPrimaryStretchParameter )    return &primaryStretch;
+   if ( p == TheNXFinishingStretchParameter )  return &finishingStretch;
    if ( p == TheNXEnableGPUParameter )         return &enableGPU;
    if ( p == TheNXCacheDirectoryParameter )    return cacheDirectory.Begin();
    return nullptr;
