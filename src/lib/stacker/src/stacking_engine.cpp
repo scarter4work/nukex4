@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <cmath>
 #include <numeric>
 #include <string>
@@ -173,9 +174,28 @@ StackingEngine::Result StackingEngine::execute(
         // 4. Align
         obs.advance(0, "  aligning");
         auto aligned = aligner.align(image, f);
-        obs.advance(0, "  aligned (" + std::to_string(aligned.stars.stars.size()) + " stars"
-                       + (aligned.alignment.is_meridian_flipped ? ", meridian flipped" : "")
-                       + ")");
+        // Surface the alignment outcome including the actual inlier / RMS
+        // numbers so a user reading the Process Console can tell which
+        // frames genuinely aligned from which were weight-penalised.
+        // (The previous log said "aligned (N stars)" regardless of success,
+        // which hid 61-failed-of-65 alignment-quality regressions for an
+        // entire release cycle.)
+        {
+           const auto& a = aligned.alignment;
+           std::string status = a.alignment_failed ? "FAILED" : "ok";
+           std::string rms_str;
+           {
+              char buf[32];
+              std::snprintf(buf, sizeof(buf), "%.3f", a.match.rms_error);
+              rms_str = buf;
+           }
+           obs.advance(0, "  aligned: " + status
+                          + " (stars=" + std::to_string(aligned.stars.stars.size())
+                          + ", inliers=" + std::to_string(a.match.n_inliers)
+                          + ", rms=" + rms_str + " px"
+                          + (a.is_meridian_flipped ? ", meridian-flipped" : "")
+                          + ")");
+        }
 
         // 5. Cache aligned frame
         obs.advance(0, "  caching");

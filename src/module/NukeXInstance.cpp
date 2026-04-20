@@ -137,6 +137,10 @@ bool NukeXInstance::ExecuteGlobal()
       return false;
    }
 
+   // Publish result counts to PJSR-readable output parameters before logging.
+   nFramesProcessed        = result.n_frames_processed;
+   nFramesFailedAlignment  = result.n_frames_failed_alignment;
+
    progress.message( String().Format(
       "Stacking complete: %d frame(s) processed, %d failed alignment",
       result.n_frames_processed, result.n_frames_failed_alignment ).ToUTF8().c_str() );
@@ -269,6 +273,8 @@ void* NukeXInstance::LockParameter( const MetaParameter* p, size_type tableRow )
    if ( p == TheNXFinishingStretchParameter )  return &finishingStretch;
    if ( p == TheNXEnableGPUParameter )         return &enableGPU;
    if ( p == TheNXCacheDirectoryParameter )    return cacheDirectory.Begin();
+   if ( p == TheNXNFramesProcessedParameter )       return &nFramesProcessed;
+   if ( p == TheNXNFramesFailedAlignmentParameter ) return &nFramesFailedAlignment;
    return nullptr;
 }
 

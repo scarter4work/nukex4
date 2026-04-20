@@ -167,8 +167,18 @@ function runPrimary(tc, out_dir) {
    catch (e) { execErr = String(e); }
    var elapsed = (new Date().getTime() - t0) / 1000.0;
 
+   // Read the module's read-only output parameters. Older modules
+   // that don't expose them come back undefined; treat as -1.
+   var nProcessed = -1, nFailed = -1;
+   try {
+      if (typeof P.nFramesProcessed        !== "undefined") nProcessed = P.nFramesProcessed;
+      if (typeof P.nFramesFailedAlignment  !== "undefined") nFailed    = P.nFramesFailedAlignment;
+   } catch (e) {}
+
    if (!ok) return { status: "fail", reason: "executeGlobal false: " + execErr,
-                     elapsed_s: elapsed };
+                     elapsed_s: elapsed,
+                     n_frames_processed: nProcessed,
+                     n_frames_failed_alignment: nFailed };
 
    ensureDir(out_dir);
    var saved = {};
@@ -186,11 +196,13 @@ function runPrimary(tc, out_dir) {
    }
 
    return {
-      status:       "ok",
-      elapsed_s:    elapsed,
-      lights:       lights.length,
-      saved_paths:  saved,
-      pixel_hashes: hashes
+      status:                    "ok",
+      elapsed_s:                 elapsed,
+      lights:                    lights.length,
+      n_frames_processed:        nProcessed,
+      n_frames_failed_alignment: nFailed,
+      saved_paths:               saved,
+      pixel_hashes:              hashes
    };
 }
 
@@ -261,6 +273,20 @@ function runCase(tc, manifest, out_root, regen, golden_dir) {
    checks.wall_time_budget_s = tc.wall_time_budget_s;
    checks.wall_time_within_budget = primary.elapsed_s <= tc.wall_time_budget_s;
 
+   // Check 5b: alignment outcome via read-only module output parameter.
+   // Fails the case if the module reports even one frame failed alignment,
+   // surfacing regressions like the "61/65 failed" state that predated
+   // the Groth triangle-matcher fix.  A return of -1 means the module is
+   // older than this parameter; in that case the check is skipped rather
+   // than failed (graceful back-compat).
+   checks.n_frames_processed         = primary.n_frames_processed;
+   checks.n_frames_failed_alignment  = primary.n_frames_failed_alignment;
+   if (primary.n_frames_failed_alignment === -1) {
+      checks.alignment_all_ok = null;  // module pre-dates the param
+   } else {
+      checks.alignment_all_ok = (primary.n_frames_failed_alignment === 0);
+   }
+
    // Check 6: dropdown sweep
    var sweep_results = [];
    if (tc.dropdown_sweep && tc.dropdown_sweep.length > 0) {
@@ -329,7 +355,8 @@ function runCase(tc, manifest, out_root, regen, golden_dir) {
                    && checks.wall_time_within_budget
                    && checks.sweep_all_ok
                    && (sweep_results.length === 0 || checks.sweep_distinct)
-                   && (checks.golden_match !== false);
+                   && (checks.golden_match !== false)
+                   && (checks.alignment_all_ok !== false);
 
    return {
       name:         tc.name,

@@ -107,6 +107,40 @@ public:
    String DefaultValue() const override;
 };
 
+// ── Output (read-only, populated after ExecuteGlobal) ────────────
+//
+// Exposing these as read-only PCL parameters lets PJSR harnesses (and
+// any future scripted caller) inspect the result of a run directly:
+//
+//   var P = new NukeX;
+//   P.lightFrames = […];
+//   P.executeGlobal();
+//   Console.writeln("failed: " + P.nFramesFailedAlignment);
+//
+// Without this we had to regex-parse the Process Console log.
+
+class NXNFramesProcessed : public MetaInt32
+{
+public:
+   NXNFramesProcessed( MetaProcess* );
+   IsoString Id() const override;
+   double DefaultValue() const override;
+   double MinimumValue() const override;
+   double MaximumValue() const override;
+   bool IsReadOnly() const override;
+};
+
+class NXNFramesFailedAlignment : public MetaInt32
+{
+public:
+   NXNFramesFailedAlignment( MetaProcess* );
+   IsoString Id() const override;
+   double DefaultValue() const override;
+   double MinimumValue() const override;
+   double MaximumValue() const override;
+   bool IsReadOnly() const override;
+};
+
 // ── Global parameter pointers ────────────────────────────────────
 
 extern NXLightFrames*      TheNXLightFramesParameter;
@@ -119,6 +153,8 @@ extern NXPrimaryStretch*   TheNXPrimaryStretchParameter;
 extern NXFinishingStretch* TheNXFinishingStretchParameter;
 extern NXEnableGPU*        TheNXEnableGPUParameter;
 extern NXCacheDirectory*   TheNXCacheDirectoryParameter;
+extern NXNFramesProcessed*       TheNXNFramesProcessedParameter;
+extern NXNFramesFailedAlignment* TheNXNFramesFailedAlignmentParameter;
 
 } // namespace pcl
 

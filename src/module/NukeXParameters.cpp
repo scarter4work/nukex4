@@ -138,4 +138,29 @@ NXCacheDirectory::NXCacheDirectory( MetaProcess* p ) : MetaString( p )
 IsoString NXCacheDirectory::Id() const { return "cacheDirectory"; }
 String NXCacheDirectory::DefaultValue() const { return "/tmp"; }
 
+// ── Output parameters ────────────────────────────────────────────
+
+NXNFramesProcessed*       TheNXNFramesProcessedParameter       = nullptr;
+NXNFramesFailedAlignment* TheNXNFramesFailedAlignmentParameter = nullptr;
+
+NXNFramesProcessed::NXNFramesProcessed( MetaProcess* p ) : MetaInt32( p )
+{
+   TheNXNFramesProcessedParameter = this;
+}
+IsoString NXNFramesProcessed::Id() const           { return "nFramesProcessed"; }
+double    NXNFramesProcessed::DefaultValue() const { return 0; }
+double    NXNFramesProcessed::MinimumValue() const { return 0; }
+double    NXNFramesProcessed::MaximumValue() const { return 2147483647; }  // INT32_MAX
+bool      NXNFramesProcessed::IsReadOnly() const   { return true; }
+
+NXNFramesFailedAlignment::NXNFramesFailedAlignment( MetaProcess* p ) : MetaInt32( p )
+{
+   TheNXNFramesFailedAlignmentParameter = this;
+}
+IsoString NXNFramesFailedAlignment::Id() const           { return "nFramesFailedAlignment"; }
+double    NXNFramesFailedAlignment::DefaultValue() const { return 0; }
+double    NXNFramesFailedAlignment::MinimumValue() const { return 0; }
+double    NXNFramesFailedAlignment::MaximumValue() const { return 2147483647; }
+bool      NXNFramesFailedAlignment::IsReadOnly() const   { return true; }
+
 } // namespace pcl

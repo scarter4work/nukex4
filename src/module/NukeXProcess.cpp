@@ -35,6 +35,10 @@ NukeXProcess::NukeXProcess()
 
    // Cache
    new NXCacheDirectory( this );
+
+   // Output parameters (read-only; populated after ExecuteGlobal).
+   new NXNFramesProcessed( this );
+   new NXNFramesFailedAlignment( this );
 }
 
 IsoString NukeXProcess::Id() const
