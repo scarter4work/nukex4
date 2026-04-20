@@ -190,7 +190,7 @@ NukeXInterface::GUIData::GUIData( NukeXInterface& w )
    PrimaryStretch_ComboBox.AddItem( "Log" );
    PrimaryStretch_ComboBox.AddItem( "Lupton" );
    PrimaryStretch_ComboBox.AddItem( "CLAHE" );
-   PrimaryStretch_ComboBox.OnItemSelected( (ComboBox::item_event_handler)&NukeXInterface::__ItemSelected, w );
+   PrimaryStretch_ComboBox.OnItemSelected( (ComboBox::item_event_handler)&NukeXInterface::e_ItemSelected, w );
 
    PrimaryStretch_Sizer.SetSpacing( 4 );
    PrimaryStretch_Sizer.Add( PrimaryStretch_Label );
@@ -199,7 +199,7 @@ NukeXInterface::GUIData::GUIData( NukeXInterface& w )
    FinishingStretch_Label.SetText( "Finishing Stretch:" );
    FinishingStretch_Label.SetTextAlignment( TextAlign::Right | TextAlign::VertCenter );
    FinishingStretch_ComboBox.AddItem( "None" );
-   FinishingStretch_ComboBox.OnItemSelected( (ComboBox::item_event_handler)&NukeXInterface::__ItemSelected, w );
+   FinishingStretch_ComboBox.OnItemSelected( (ComboBox::item_event_handler)&NukeXInterface::e_ItemSelected, w );
 
    FinishingStretch_Sizer.SetSpacing( 4 );
    FinishingStretch_Sizer.Add( FinishingStretch_Label );
@@ -390,7 +390,7 @@ void NukeXInterface::e_FlatClear( Button&, bool )
    UpdateFlatFramesList();
 }
 
-void NukeXInterface::__ItemSelected( ComboBox& sender, int itemIndex )
+void NukeXInterface::e_ItemSelected( ComboBox& sender, int itemIndex )
 {
    if ( sender == GUI->PrimaryStretch_ComboBox )
       instance.primaryStretch = itemIndex;

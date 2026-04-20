@@ -105,7 +105,7 @@ private:
    void e_FlatAdd( Button& sender, bool checked );
    void e_FlatRemove( Button& sender, bool checked );
    void e_FlatClear( Button& sender, bool checked );
-   void __ItemSelected( ComboBox& sender, int itemIndex );
+   void e_ItemSelected( ComboBox& sender, int itemIndex );
    void e_OptionToggled( Button& sender, bool checked );
 };
 
