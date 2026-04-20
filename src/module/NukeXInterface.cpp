@@ -180,37 +180,41 @@ NukeXInterface::GUIData::GUIData( NukeXInterface& w )
    FlatFrames_Control.Hide();  // Start collapsed — flats are optional
 
    // ── Options Section ──
-   StretchType_Label.SetText( "Stretch:" );
-   StretchType_Label.SetTextAlignment( TextAlign::Right | TextAlign::VertCenter );
-   StretchType_ComboBox.AddItem( "VeraLux HMS" );
-   StretchType_ComboBox.AddItem( "GHS (Generalized Hyperbolic)" );
-   StretchType_ComboBox.AddItem( "MTF (Midtone Transfer)" );
-   StretchType_ComboBox.AddItem( "ArcSinh" );
-   StretchType_ComboBox.AddItem( "Log" );
-   StretchType_ComboBox.AddItem( "Lupton RGB" );
-   StretchType_ComboBox.AddItem( "CLAHE" );
-   StretchType_ComboBox.AddItem( "SAS (Signal-Adaptive)" );
-   StretchType_ComboBox.AddItem( "OTS (Optimal Transport)" );
-   StretchType_ComboBox.AddItem( "Photometric" );
-   StretchType_ComboBox.OnItemSelected( (ComboBox::item_event_handler)&NukeXInterface::e_StretchTypeSelected, w );
+   PrimaryStretch_Label.SetText( "Primary Stretch:" );
+   PrimaryStretch_Label.SetTextAlignment( TextAlign::Right | TextAlign::VertCenter );
+   PrimaryStretch_ComboBox.AddItem( "Auto" );
+   PrimaryStretch_ComboBox.AddItem( "VeraLux" );
+   PrimaryStretch_ComboBox.AddItem( "GHS" );
+   PrimaryStretch_ComboBox.AddItem( "MTF" );
+   PrimaryStretch_ComboBox.AddItem( "ArcSinh" );
+   PrimaryStretch_ComboBox.AddItem( "Log" );
+   PrimaryStretch_ComboBox.AddItem( "Lupton" );
+   PrimaryStretch_ComboBox.AddItem( "CLAHE" );
+   PrimaryStretch_ComboBox.OnItemSelected( (ComboBox::item_event_handler)&NukeXInterface::__ItemSelected, w );
 
-   Stretch_Sizer.SetSpacing( 4 );
-   Stretch_Sizer.Add( StretchType_Label );
-   Stretch_Sizer.Add( StretchType_ComboBox, 100 );
+   PrimaryStretch_Sizer.SetSpacing( 4 );
+   PrimaryStretch_Sizer.Add( PrimaryStretch_Label );
+   PrimaryStretch_Sizer.Add( PrimaryStretch_ComboBox, 100 );
 
-   AutoStretch_CheckBox.SetText( "Auto-detect stretch parameters from FITS headers" );
-   AutoStretch_CheckBox.OnClick( (Button::click_event_handler)&NukeXInterface::e_OptionToggled, w );
+   FinishingStretch_Label.SetText( "Finishing Stretch:" );
+   FinishingStretch_Label.SetTextAlignment( TextAlign::Right | TextAlign::VertCenter );
+   FinishingStretch_ComboBox.AddItem( "None" );
+   FinishingStretch_ComboBox.OnItemSelected( (ComboBox::item_event_handler)&NukeXInterface::__ItemSelected, w );
+
+   FinishingStretch_Sizer.SetSpacing( 4 );
+   FinishingStretch_Sizer.Add( FinishingStretch_Label );
+   FinishingStretch_Sizer.Add( FinishingStretch_ComboBox, 100 );
 
    EnableGPU_CheckBox.SetText( "Enable GPU acceleration (OpenCL)" );
    EnableGPU_CheckBox.OnClick( (Button::click_event_handler)&NukeXInterface::e_OptionToggled, w );
 
    GPU_Sizer.SetSpacing( 16 );
-   GPU_Sizer.Add( AutoStretch_CheckBox );
    GPU_Sizer.Add( EnableGPU_CheckBox );
    GPU_Sizer.AddStretch();
 
    Options_Sizer.SetSpacing( 4 );
-   Options_Sizer.Add( Stretch_Sizer );
+   Options_Sizer.Add( PrimaryStretch_Sizer );
+   Options_Sizer.Add( FinishingStretch_Sizer );
    Options_Sizer.Add( GPU_Sizer );
 
    Options_Control.SetSizer( Options_Sizer );
@@ -240,8 +244,8 @@ void NukeXInterface::UpdateControls()
    if ( GUI == nullptr ) return;
    UpdateLightFramesList();
    UpdateFlatFramesList();
-   GUI->StretchType_ComboBox.SetCurrentItem( instance.stretchType );
-   GUI->AutoStretch_CheckBox.SetChecked( instance.autoStretch );
+   GUI->PrimaryStretch_ComboBox.SetCurrentItem( instance.primaryStretch );
+   GUI->FinishingStretch_ComboBox.SetCurrentItem( instance.finishingStretch );
    GUI->EnableGPU_CheckBox.SetChecked( instance.enableGPU );
 }
 
@@ -386,16 +390,17 @@ void NukeXInterface::e_FlatClear( Button&, bool )
    UpdateFlatFramesList();
 }
 
-void NukeXInterface::e_StretchTypeSelected( ComboBox&, int itemIndex )
+void NukeXInterface::__ItemSelected( ComboBox& sender, int itemIndex )
 {
-   instance.stretchType = itemIndex;
+   if ( sender == GUI->PrimaryStretch_ComboBox )
+      instance.primaryStretch = itemIndex;
+   else if ( sender == GUI->FinishingStretch_ComboBox )
+      instance.finishingStretch = itemIndex;
 }
 
 void NukeXInterface::e_OptionToggled( Button& sender, bool checked )
 {
-   if ( sender == GUI->AutoStretch_CheckBox )
-      instance.autoStretch = checked;
-   else if ( sender == GUI->EnableGPU_CheckBox )
+   if ( sender == GUI->EnableGPU_CheckBox )
       instance.enableGPU = checked;
 }
 

@@ -80,12 +80,14 @@ private:
       SectionBar     Options_SectionBar;
       Control        Options_Control;
       VerticalSizer  Options_Sizer;
-      HorizontalSizer Stretch_Sizer;
-      Label          StretchType_Label;
-      ComboBox       StretchType_ComboBox;
+      HorizontalSizer PrimaryStretch_Sizer;
+      Label          PrimaryStretch_Label;
+      ComboBox       PrimaryStretch_ComboBox;
+      HorizontalSizer FinishingStretch_Sizer;
+      Label          FinishingStretch_Label;
+      ComboBox       FinishingStretch_ComboBox;
       HorizontalSizer GPU_Sizer;
       CheckBox       EnableGPU_CheckBox;
-      CheckBox       AutoStretch_CheckBox;
    };
 
    GUIData* GUI = nullptr;
@@ -103,7 +105,7 @@ private:
    void e_FlatAdd( Button& sender, bool checked );
    void e_FlatRemove( Button& sender, bool checked );
    void e_FlatClear( Button& sender, bool checked );
-   void e_StretchTypeSelected( ComboBox& sender, int itemIndex );
+   void __ItemSelected( ComboBox& sender, int itemIndex );
    void e_OptionToggled( Button& sender, bool checked );
 };
 
