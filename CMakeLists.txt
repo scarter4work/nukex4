@@ -61,6 +61,12 @@ endif()
 # OPENSSL_3.2.0 symbols that PI's bundled libssl can't resolve).
 option(NUKEX_RELEASE_BUILD "Distribution-ready build; hard-fails on deps that break PixInsight module loading" OFF)
 
+option(NUKEX_PROFILING "Add -fno-omit-frame-pointer for perf flamegraph capture" OFF)
+if(NUKEX_PROFILING)
+    message(STATUS "NUKEX_PROFILING=ON: adding -fno-omit-frame-pointer")
+    add_compile_options(-fno-omit-frame-pointer)
+endif()
+
 add_subdirectory(src/lib/core)
 add_subdirectory(src/lib/io)
 add_subdirectory(src/lib/alignment)
