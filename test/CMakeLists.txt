@@ -77,6 +77,7 @@ nukex_add_test(test_gpu_agreement unit/gpu/test_gpu_agreement.cpp nukex4_gpu nuk
 # Module-layer tests (fits_metadata and future module code)
 add_library(nukex4_module_testlib OBJECT
     "${CMAKE_SOURCE_DIR}/src/module/fits_metadata.cpp"
+    "${CMAKE_SOURCE_DIR}/src/module/filter_classifier.cpp"
 )
 target_include_directories(nukex4_module_testlib PUBLIC
     "${CMAKE_SOURCE_DIR}/src/module"
@@ -85,3 +86,4 @@ target_include_directories(nukex4_module_testlib PUBLIC
 target_link_libraries(nukex4_module_testlib PUBLIC cfitsio)
 
 nukex_add_test(test_fits_metadata unit/module/test_fits_metadata.cpp nukex4_module_testlib)
+nukex_add_test(test_filter_classifier unit/module/test_filter_classifier.cpp nukex4_module_testlib)
