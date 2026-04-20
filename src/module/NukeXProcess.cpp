@@ -27,8 +27,8 @@ NukeXProcess::NukeXProcess()
    new NXFlatFrameEnabled( flatTable );
 
    // Stretch parameters
-   new NXStretchType( this );
-   new NXAutoStretch( this );
+   new NXPrimaryStretch( this );
+   new NXFinishingStretch( this );
 
    // GPU
    new NXEnableGPU( this );

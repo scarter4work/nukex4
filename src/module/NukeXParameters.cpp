@@ -14,8 +14,8 @@ NXLightFrameEnabled* TheNXLightFrameEnabledParameter = nullptr;
 NXFlatFrames*        TheNXFlatFramesParameter = nullptr;
 NXFlatFramePath*     TheNXFlatFramePathParameter = nullptr;
 NXFlatFrameEnabled*  TheNXFlatFrameEnabledParameter = nullptr;
-NXStretchType*       TheNXStretchTypeParameter = nullptr;
-NXAutoStretch*       TheNXAutoStretchParameter = nullptr;
+NXPrimaryStretch*   TheNXPrimaryStretchParameter = nullptr;
+NXFinishingStretch* TheNXFinishingStretchParameter = nullptr;
 NXEnableGPU*         TheNXEnableGPUParameter = nullptr;
 NXCacheDirectory*    TheNXCacheDirectoryParameter = nullptr;
 
@@ -71,53 +71,52 @@ bool NXFlatFrameEnabled::DefaultValue() const { return true; }
 
 // ── Stretch Configuration ────────────────────────────────────────
 
-NXStretchType::NXStretchType( MetaProcess* p ) : MetaEnumeration( p )
+NXPrimaryStretch::NXPrimaryStretch( MetaProcess* p ) : MetaEnumeration( p )
 {
-   TheNXStretchTypeParameter = this;
+   TheNXPrimaryStretchParameter = this;
 }
 
-IsoString NXStretchType::Id() const { return "stretchType"; }
+IsoString NXPrimaryStretch::Id() const { return "primaryStretch"; }
+size_type NXPrimaryStretch::NumberOfElements() const { return NumberOfItems; }
 
-size_type NXStretchType::NumberOfElements() const
-{
-   return NumberOfItems;
-}
-
-IsoString NXStretchType::ElementId( size_type i ) const
+IsoString NXPrimaryStretch::ElementId( size_type i ) const
 {
    switch ( i )
    {
-   case VeraLux:      return "VeraLux";
-   case GHS:          return "GHS";
-   case MTF:          return "MTF";
-   case ArcSinh:      return "ArcSinh";
-   case Log:          return "Log";
-   case Lupton:       return "Lupton";
-   case CLAHE:        return "CLAHE";
-   case SAS:          return "SAS";
-   case OTS:          return "OTS";
-   case Photometric:  return "Photometric";
-   default:           return IsoString();
+   case Auto:    return "Auto";
+   case VeraLux: return "VeraLux";
+   case GHS:     return "GHS";
+   case MTF:     return "MTF";
+   case ArcSinh: return "ArcSinh";
+   case Log:     return "Log";
+   case Lupton:  return "Lupton";
+   case CLAHE:   return "CLAHE";
+   default:      return IsoString();
    }
 }
 
-int NXStretchType::ElementValue( size_type i ) const
+int NXPrimaryStretch::ElementValue( size_type i ) const { return int( i ); }
+size_type NXPrimaryStretch::DefaultValueIndex() const { return Auto; }
+
+NXFinishingStretch::NXFinishingStretch( MetaProcess* p ) : MetaEnumeration( p )
 {
-   return int( i );  // Values match enum indices
+   TheNXFinishingStretchParameter = this;
 }
 
-size_type NXStretchType::DefaultValueIndex() const
+IsoString NXFinishingStretch::Id() const { return "finishingStretch"; }
+size_type NXFinishingStretch::NumberOfElements() const { return NumberOfItems; }
+
+IsoString NXFinishingStretch::ElementId( size_type i ) const
 {
-   return VeraLux;  // Overall champion from optimization
+   switch ( i )
+   {
+   case None: return "None";
+   default:   return IsoString();
+   }
 }
 
-NXAutoStretch::NXAutoStretch( MetaProcess* p ) : MetaBoolean( p )
-{
-   TheNXAutoStretchParameter = this;
-}
-
-IsoString NXAutoStretch::Id() const { return "autoStretch"; }
-bool NXAutoStretch::DefaultValue() const { return true; }
+int NXFinishingStretch::ElementValue( size_type i ) const { return int( i ); }
+size_type NXFinishingStretch::DefaultValueIndex() const { return None; }
 
 // ── GPU Configuration ────────────────────────────────────────────
 

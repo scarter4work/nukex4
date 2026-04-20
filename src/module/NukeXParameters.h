@@ -61,26 +61,30 @@ public:
 
 // ── Stretch Configuration ────────────────────────────────────────
 
-class NXStretchType : public MetaEnumeration
+class NXPrimaryStretch : public MetaEnumeration
 {
 public:
-   NXStretchType( MetaProcess* );
+   NXPrimaryStretch( MetaProcess* );
    IsoString Id() const override;
    size_type NumberOfElements() const override;
    IsoString ElementId( size_type ) const override;
    int ElementValue( size_type ) const override;
    size_type DefaultValueIndex() const override;
 
-   enum { VeraLux, GHS, MTF, ArcSinh, Log, Lupton,
-          CLAHE, SAS, OTS, Photometric, NumberOfItems };
+   enum { Auto, VeraLux, GHS, MTF, ArcSinh, Log, Lupton, CLAHE, NumberOfItems };
 };
 
-class NXAutoStretch : public MetaBoolean
+class NXFinishingStretch : public MetaEnumeration
 {
 public:
-   NXAutoStretch( MetaProcess* );
+   NXFinishingStretch( MetaProcess* );
    IsoString Id() const override;
-   bool DefaultValue() const override;
+   size_type NumberOfElements() const override;
+   IsoString ElementId( size_type ) const override;
+   int ElementValue( size_type ) const override;
+   size_type DefaultValueIndex() const override;
+
+   enum { None, NumberOfItems };
 };
 
 // ── GPU Configuration ────────────────────────────────────────────
@@ -111,8 +115,8 @@ extern NXLightFrameEnabled* TheNXLightFrameEnabledParameter;
 extern NXFlatFrames*       TheNXFlatFramesParameter;
 extern NXFlatFramePath*    TheNXFlatFramePathParameter;
 extern NXFlatFrameEnabled* TheNXFlatFrameEnabledParameter;
-extern NXStretchType*      TheNXStretchTypeParameter;
-extern NXAutoStretch*      TheNXAutoStretchParameter;
+extern NXPrimaryStretch*   TheNXPrimaryStretchParameter;
+extern NXFinishingStretch* TheNXFinishingStretchParameter;
 extern NXEnableGPU*        TheNXEnableGPUParameter;
 extern NXCacheDirectory*   TheNXCacheDirectoryParameter;
 
