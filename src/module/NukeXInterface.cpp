@@ -180,8 +180,17 @@ NukeXInterface::GUIData::GUIData( NukeXInterface& w )
    FlatFrames_Control.Hide();  // Start collapsed — flats are optional
 
    // ── Options Section ──
+   const char* kPrimaryStretchTip =
+      "Curve applied to the stacked image to produce NukeX_stretched.\n\n"
+      "Auto — picks a Phase-5 champion curve based on the first light "
+      "frame's FITS metadata (FILTER / BAYERPAT / NAXIS3). Recommended.\n\n"
+      "VeraLux / GHS / MTF / ArcSinh / Log / Lupton / CLAHE — force a "
+      "specific curve regardless of filter class.\n\n"
+      "The Process Console logs the Auto classification and choice so "
+      "you can see exactly why a given curve was picked.";
    PrimaryStretch_Label.SetText( "Primary Stretch:" );
    PrimaryStretch_Label.SetTextAlignment( TextAlign::Right | TextAlign::VertCenter );
+   PrimaryStretch_Label.SetToolTip( kPrimaryStretchTip );
    PrimaryStretch_ComboBox.AddItem( "Auto" );
    PrimaryStretch_ComboBox.AddItem( "VeraLux" );
    PrimaryStretch_ComboBox.AddItem( "GHS" );
@@ -190,15 +199,22 @@ NukeXInterface::GUIData::GUIData( NukeXInterface& w )
    PrimaryStretch_ComboBox.AddItem( "Log" );
    PrimaryStretch_ComboBox.AddItem( "Lupton" );
    PrimaryStretch_ComboBox.AddItem( "CLAHE" );
+   PrimaryStretch_ComboBox.SetToolTip( kPrimaryStretchTip );
    PrimaryStretch_ComboBox.OnItemSelected( (ComboBox::item_event_handler)&NukeXInterface::e_ItemSelected, w );
 
    PrimaryStretch_Sizer.SetSpacing( 4 );
    PrimaryStretch_Sizer.Add( PrimaryStretch_Label );
    PrimaryStretch_Sizer.Add( PrimaryStretch_ComboBox, 100 );
 
+   const char* kFinishingStretchTip =
+      "Optional second-stage stretch applied after the Primary curve.\n\n"
+      "None — only curve enrolled today. SAS / OTS / Photometric "
+      "finishers are slated for future phases.";
    FinishingStretch_Label.SetText( "Finishing Stretch:" );
    FinishingStretch_Label.SetTextAlignment( TextAlign::Right | TextAlign::VertCenter );
+   FinishingStretch_Label.SetToolTip( kFinishingStretchTip );
    FinishingStretch_ComboBox.AddItem( "None" );
+   FinishingStretch_ComboBox.SetToolTip( kFinishingStretchTip );
    FinishingStretch_ComboBox.OnItemSelected( (ComboBox::item_event_handler)&NukeXInterface::e_ItemSelected, w );
 
    FinishingStretch_Sizer.SetSpacing( 4 );
@@ -206,6 +222,12 @@ NukeXInterface::GUIData::GUIData( NukeXInterface& w )
    FinishingStretch_Sizer.Add( FinishingStretch_ComboBox, 100 );
 
    EnableGPU_CheckBox.SetText( "Enable GPU acceleration (OpenCL)" );
+   EnableGPU_CheckBox.SetToolTip(
+      "Runs Phase B's per-voxel weight classification, robust statistics, "
+      "and pixel-selection kernels on an OpenCL device "
+      "(NVIDIA / AMD / Intel).  Distribution fitting (Ceres) stays on "
+      "CPU regardless.  Disable to run the whole stack on CPU — useful "
+      "for debugging or on machines without OpenCL.  Default: on." );
    EnableGPU_CheckBox.OnClick( (Button::click_event_handler)&NukeXInterface::e_OptionToggled, w );
 
    GPU_Sizer.SetSpacing( 16 );
