@@ -17,7 +17,11 @@ std::unique_ptr<StretchOp> build_primary(PrimaryStretch e,
     out_log_line.clear();
     switch (e) {
         case PrimaryStretch::Auto: {
-            auto sel = select_auto(classify_filter(meta));
+            // Pass the full metadata to select_auto so the log line can
+            // include the FITS values (FILTER/BAYERPAT/NAXIS3) that drove
+            // the classification — useful when a user is debugging an
+            // unexpected auto-selection.
+            auto sel = select_auto(meta);
             out_log_line = std::move(sel.log_line);
             return std::move(sel.op);
         }
