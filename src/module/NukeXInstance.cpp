@@ -145,6 +145,42 @@ bool NukeXInstance::ExecuteGlobal()
       "Stacking complete: %d frame(s) processed, %d failed alignment",
       result.n_frames_processed, result.n_frames_failed_alignment ).ToUTF8().c_str() );
 
+   // Loud warnings on low alignment success rate.  Before v4.0.0.5,
+   // a broken matcher silently weight-penalised 61/65 frames and the
+   // only indicator was a buried summary line — the whole class of
+   // "it ran, but most of my signal was at half weight" regression
+   // can't be allowed to be quiet again.
+   //
+   // Thresholds:
+   //   > 50% failed  → ** CRITICAL ** with remediation hint
+   //   10–50% failed → ** WARNING  ** so users notice but can decide
+   //   ≤ 10% failed  → no warning (some drift / clouded frames is normal)
+   if ( result.n_frames_processed > 0 )
+   {
+      double pct = 100.0 * double( result.n_frames_failed_alignment )
+                        / double( result.n_frames_processed );
+      if ( pct > 50.0 )
+      {
+         progress.message( String().Format(
+            "** CRITICAL ** %.1f%% of frames (%d of %d) failed alignment. "
+            "Stacked result uses weight-penalised frames; SNR is significantly "
+            "degraded.  Check that the first light frame is a reasonable "
+            "reference (no clouds, well-tracked, enough stars), and that all "
+            "lights cover a similar field.",
+            pct, result.n_frames_failed_alignment,
+            result.n_frames_processed ).ToUTF8().c_str() );
+      }
+      else if ( pct > 10.0 )
+      {
+         progress.message( String().Format(
+            "** WARNING ** %.1f%% of frames (%d of %d) failed alignment and "
+            "are stacked at 0.5x weight penalty.  Review the per-frame 'aligned'"
+            " log lines above for which frames are affected.",
+            pct, result.n_frames_failed_alignment,
+            result.n_frames_processed ).ToUTF8().c_str() );
+      }
+   }
+
    // Create output ImageWindow with the stacked result
    if ( !result.stacked.empty() )
    {
