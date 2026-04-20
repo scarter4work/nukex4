@@ -5,10 +5,10 @@
       <copyright>Copyright (c) 2026 Scott Carter</copyright>
    </description>
    <platform os="linux" arch="x64" version="1.8.0:1.9.9">
-      <package fileName="20260413-linux-x64-NukeX.tar.gz" sha1="82c9f47a20cbea72f1a764f5d48bf99beaef18e0" type="module" releaseDate="20260413">
+      <package fileName="20260420-linux-x64-NukeX.tar.gz" sha1="75438b01bd02ac10f4ffc0ad25b13721822e1da4" type="module" releaseDate="20260420">
          <title>NukeX</title>
-         <description>NukeX v4 — Distribution-Fitted Stacking. Per-pixel distribution fitting with GPU acceleration and 10 stretch operations. v4.0.0.3 fixes module load failure on Fedora/Nobara caused by system libcurl → OpenSSL 3.2 ABI conflict with PixInsight&apos;s bundled libssl.</description>
+         <description>NukeX v4 — Distribution-Fitted Stacking. v4.0.0.4: stretch pipeline wired to output (NukeX_stretched window), metadata-driven Auto selection (FITS FILTER/BAYERPAT/NAXIS3 classification), primaryStretch + finishingStretch parameters replace stretchType + autoStretch.</description>
       </package>
    </platform>
 </xri>
-<Signature developerId="scarter4work" timestamp="2026-04-13T18:06:45.229Z" encoding="Base64">uWQ8huktu40NilfO356fMtbpVm70Gfs9WjcONK40XqVkQTF45mSKKCdF7DO+8Xk7Hpsh9ci/CPuS+A1sybxvAA==</Signature>
+<Signature developerId="scarter4work" timestamp="2026-04-20T04:38:08.740Z" encoding="Base64">vQgTztUYmIpAMJo1+hCNrZzyhh0+x8T3j2XddAAPQa6v2TvCu0O/CF6RAl/EDQZcHyy/I79ruhnZ+5VqzBUaDA==</Signature>
