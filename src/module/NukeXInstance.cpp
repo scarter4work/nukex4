@@ -15,6 +15,9 @@
 #include "fits_metadata.hpp"
 #include "stretch_factory.hpp"
 
+#include <sys/stat.h>
+#include <unistd.h>
+
 namespace pcl
 {
 
@@ -66,15 +69,41 @@ bool NukeXInstance::Validate( String& whyNot )
       whyNot = "No light frames specified.";
       return false;
    }
-   // Check that at least one frame is enabled
-   bool any_enabled = false;
+   int n_enabled = 0;
    for ( const auto& f : lightFrames )
-      if ( f.enabled ) { any_enabled = true; break; }
-   if ( !any_enabled )
+      if ( f.enabled ) ++n_enabled;
+   if ( n_enabled == 0 )
    {
       whyNot = "No light frames are enabled.";
       return false;
    }
+
+   // Cache directory writability check.  A non-writable cache is a
+   // common misconfiguration (stale /tmp, wrong mount point, etc.)
+   // and previously surfaced only as cryptic I/O errors deep inside
+   // the ring-buffer later in Phase A.  Catch it at Validate time so
+   // PI's Execute button stays disabled with a clear message.
+   if ( !cacheDirectory.IsEmpty() )
+   {
+      String cache = cacheDirectory.Trimmed();
+      if ( !cache.IsEmpty() )
+      {
+         IsoString cache_utf8 = cache.ToUTF8();
+         const char* p = cache_utf8.c_str();
+         struct stat st;
+         if ( ::stat( p, &st ) != 0 || !S_ISDIR( st.st_mode ) )
+         {
+            whyNot = "Cache directory does not exist or is not a directory: " + cache;
+            return false;
+         }
+         if ( ::access( p, W_OK ) != 0 )
+         {
+            whyNot = "Cache directory is not writable by the current user: " + cache;
+            return false;
+         }
+      }
+   }
+
    return true;
 }
 
@@ -83,6 +112,14 @@ bool NukeXInstance::CanExecuteGlobal( String& whyNot ) const
    if ( lightFrames.IsEmpty() )
    {
       whyNot = "No light frames specified.";
+      return false;
+   }
+   int n_enabled = 0;
+   for ( const auto& f : lightFrames )
+      if ( f.enabled ) ++n_enabled;
+   if ( n_enabled == 0 )
+   {
+      whyNot = "No light frames are enabled.";
       return false;
    }
    return true;
@@ -113,6 +150,20 @@ bool NukeXInstance::ExecuteGlobal()
    {
       progress.message( "** No enabled light frames. Aborting." );
       return false;
+   }
+
+   // Advisory: Student-t / contamination fitters need n ≥ 5 samples per
+   // voxel to converge; with fewer frames, Phase B falls back to robust
+   // stats only and distributional modelling is skipped.  Surface this
+   // so users understand the quality cliff they're on.
+   if ( light_paths.size() < 5 )
+   {
+      progress.message( String().Format(
+         "** WARNING ** Only %zu enabled light frame(s).  Distribution "
+         "fitting needs n >= 5; stacking will fall back to robust "
+         "statistics per voxel and skip Student-t / contamination "
+         "modelling.  Add more frames for full Phase B output quality.",
+         light_paths.size() ).ToUTF8().c_str() );
    }
 
    // Configure stacking engine
