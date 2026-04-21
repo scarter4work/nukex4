@@ -23,6 +23,9 @@ public:
         int   max_stars      = 200;    // keep top N brightest
         int   exclusion_radius = 5;    // minimum distance between detected stars (pixels)
         float saturation_level = 0.95f; // reject stars with peak above this
+        float saturation_reject_fraction = 0.5f; // reject whole frame if this
+                                                  // fraction of pixels is at
+                                                  // saturation_level or above
     };
 
     /// Detect stars in a single-channel image.
@@ -31,6 +34,11 @@ public:
 
     /// Detect stars using default configuration.
     static StarCatalog detect(const Image& image) { return detect(image, Config{}); }
+
+    /// Fraction of pixels at or above `saturation_level`, measured on a 4x
+    /// decimated sample of channel 0.  Callers use this to decide whether a
+    /// frame is unusable before attempting expensive detection work.
+    static float saturation_fraction(const Image& image, float saturation_level);
 
 private:
     /// Compute robust background (median) and noise (MAD) of the image.

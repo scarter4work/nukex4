@@ -1,5 +1,47 @@
 # NukeX v4 — Changelog
 
+## v4.0.0.8 — 2026-04-21
+
+Robustness + observability release driven by the first real-data stack on
+shipped v4.0.0.7 (M27 Bayer-RGB, 2026-04-20).  Two concrete user-reported
+gaps closed; pixel output on well-exposed frames is bit-identical to
+v4.0.0.7 (E2E goldens unchanged).
+
+### Added
+- **Saturation guard in StarDetector.**  Before running
+  `find_local_maxima`, the detector measures the fraction of pixels at
+  or above `saturation_level` on a 4× decimated sample of the frame.
+  If that fraction exceeds `saturation_reject_fraction` (default 0.5),
+  the frame is rejected up front with an empty catalog.  Previously, a
+  dawn-twilight frame where a majority of pixels were clipped sent the
+  O(n²) exclusion-radius filter chasing a plateau of "local maxima" and
+  hung `StarDetector::find_local_maxima` for 5+ minutes per frame.
+  New unit tests exercise the hang on 1200×1200 (10.4 s → < 50 ms) and
+  verify normal frames with a handful of saturated-core stars still
+  detect correctly.
+- **Distinctive log line for blown-out frames.**  In the stacking
+  engine, a pre-flight saturation check replaces the generic
+  `aligned: FAILED (stars=0)` line with
+  `aligned: SKIPPED (blown out — X.X% pixels at saturation)` so a user
+  watching the Process Console can tell a truly unusable frame from a
+  detection misfire.
+- **Fit-loop heartbeat in Phase B.**  The OpenMP-parallelised Ceres
+  distribution-fitting loop (`gpu_executor.cpp:437`) now emits a
+  `fitted K/N voxels (Ts)` line every 2 s from thread 0.  Previously
+  the Process Console was silent for the entire 3–4 min single-batch
+  fit between kernel 2 and kernel 3, which made long stacks look
+  frozen.  The emission is rate-limited via an atomic compare-exchange
+  on a shared "last report time" so the observer's mutex never lands
+  on the hot compute path; unit tests (`test_fit_heartbeat`) lock in
+  the thread-0 gate, the interval gate, and the concurrent-done count.
+
+### Implementation notes
+- New public `StarDetector::saturation_fraction(image, level)` helper
+  backs both the detector's own guard and the stacking-engine log line
+  so the fraction is computed from a single definition.
+- New `FitHeartbeat` utility class in `src/lib/gpu` keeps the
+  rate-limit / emission logic testable without a full Phase B harness.
+
 ## v4.0.0.7 — 2026-04-20
 
 Polish pass on top of v4.0.0.6.  No compute-path changes — pixel output

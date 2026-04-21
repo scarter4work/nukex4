@@ -10,6 +10,7 @@ set(GPU_SOURCES
     src/gpu_cpu_fallback.cpp
     src/gpu_kernels.cpp
     src/gpu_executor.cpp
+    src/fit_heartbeat.cpp
 )
 
 add_library(nukex4_gpu STATIC ${GPU_SOURCES})

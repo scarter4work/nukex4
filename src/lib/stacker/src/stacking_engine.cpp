@@ -172,6 +172,16 @@ StackingEngine::Result StackingEngine::execute(
         }
 
         // 4. Align
+        // Pre-check saturation so a blown-out frame gets a specific log line
+        // ("SKIPPED — blown out, X%") rather than the generic
+        // "aligned: FAILED (stars=0)".  The actual guard that keeps
+        // StarDetector fast lives in StarDetector::detect — this is purely
+        // for log clarity in the Process Console.
+        float sat_frac = StarDetector::saturation_fraction(
+            image, config_.aligner_config.star_config.saturation_level);
+        bool blown_out =
+            sat_frac >= config_.aligner_config.star_config.saturation_reject_fraction;
+
         obs.advance(0, "  aligning");
         auto aligned = aligner.align(image, f);
         // Surface the alignment outcome including the actual inlier / RMS
@@ -180,7 +190,13 @@ StackingEngine::Result StackingEngine::execute(
         // (The previous log said "aligned (N stars)" regardless of success,
         // which hid 61-failed-of-65 alignment-quality regressions for an
         // entire release cycle.)
-        {
+        if (blown_out) {
+            char pct[16];
+            std::snprintf(pct, sizeof(pct), "%.1f", sat_frac * 100.0f);
+            obs.advance(0,
+                std::string("  aligned: SKIPPED (blown out — ") + pct
+                + "% pixels at saturation)");
+        } else {
            const auto& a = aligned.alignment;
            std::string status = a.alignment_failed ? "FAILED" : "ok";
            std::string rms_str;

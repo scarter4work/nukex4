@@ -170,11 +170,37 @@ float StarDetector::compute_flux(const Image& image, float cx, float cy,
     return flux;
 }
 
+float StarDetector::saturation_fraction(const Image& image, float saturation_level) {
+    if (image.empty()) return 0.0f;
+    const int w = image.width();
+    const int h = image.height();
+    const int step = 4;  // 4x decimation: ~16x faster than full scan
+    long saturated = 0;
+    long total = 0;
+    for (int y = 0; y < h; y += step) {
+        for (int x = 0; x < w; x += step) {
+            if (image.at(x, y, 0) >= saturation_level) saturated++;
+            total++;
+        }
+    }
+    if (total == 0) return 0.0f;
+    return static_cast<float>(saturated) / static_cast<float>(total);
+}
+
 StarCatalog StarDetector::detect(const Image& image, const Config& config) {
     StarCatalog catalog;
 
     if (image.empty() || image.width() < 20 || image.height() < 20) {
         return catalog;
+    }
+
+    // Saturation guard: reject frames where a majority of pixels are clipped
+    // to saturation.  Without this, find_local_maxima sees the entire clipped
+    // plateau as candidate stars and the O(n^2) exclusion-radius filter hangs
+    // (observed 2026-04-20 on a dawn-twilight M27 frame; 5 min per frame).
+    if (saturation_fraction(image, config.saturation_level)
+            >= config.saturation_reject_fraction) {
+        return catalog;  // empty — caller treats as alignment failure
     }
 
     // Step 1: Background and noise estimation

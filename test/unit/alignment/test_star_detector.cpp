@@ -3,6 +3,7 @@
 #include "nukex/alignment/types.hpp"
 #include "nukex/io/image.hpp"
 #include "nukex/io/fits_reader.hpp"
+#include <chrono>
 #include <cmath>
 #include <filesystem>
 
@@ -133,6 +134,74 @@ TEST_CASE("StarDetector: max_stars limits output", "[star_detector]") {
 
     StarCatalog catalog = StarDetector::detect(img, config);
     REQUIRE(catalog.size() <= 10);
+}
+
+TEST_CASE("StarDetector: rejects fully saturated frame quickly", "[star_detector]") {
+    // Simulates a dawn/twilight frame clipped to max everywhere.  Without the
+    // saturation guard, find_local_maxima's O(n^2) exclusion filter runs over
+    // every pixel and hangs for minutes.  With the guard the call must return
+    // an empty catalog in well under a second even at this size.
+    Image img(500, 500, 1);
+    img.fill(1.0f);
+
+    auto t0 = std::chrono::steady_clock::now();
+    StarCatalog catalog = StarDetector::detect(img);
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - t0).count();
+
+    REQUIRE(catalog.size() == 0);
+    REQUIRE(elapsed < 500);  // guard makes this O(samples), not O(pixels^2)
+}
+
+TEST_CASE("StarDetector: rejects majority-saturated frame (dawn twilight case)",
+          "[star_detector]") {
+    // Real M27 failure mode: ~60% of the frame clipped to saturation with a
+    // gradient across the rest.  max - min is ~0.1 (gradient), so a simple
+    // dynamic-range check would not catch this; saturation-fraction must.
+    const int W = 1200, H = 1200;
+    Image img(W, H, 1);
+    for (int y = 0; y < H; y++) {
+        for (int x = 0; x < W; x++) {
+            // Top 60% of rows saturated; bottom 40% ramps 0.85 -> 0.95.
+            float v;
+            if (y < (H * 6) / 10) {
+                v = 1.0f;
+            } else {
+                v = 0.85f + 0.10f *
+                    static_cast<float>(y - (H * 6) / 10) /
+                    static_cast<float>(H - (H * 6) / 10);
+            }
+            img.at(x, y, 0) = v;
+        }
+    }
+
+    auto t0 = std::chrono::steady_clock::now();
+    StarCatalog catalog = StarDetector::detect(img);
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - t0).count();
+
+    REQUIRE(catalog.size() == 0);
+    REQUIRE(elapsed < 500);
+}
+
+TEST_CASE("StarDetector: normal frame with a few saturated stars still detects",
+          "[star_detector]") {
+    // A well-exposed frame has only a handful of saturated pixels (bright
+    // stars' cores).  The guard must not fire on these.
+    std::vector<std::tuple<float, float, float>> stars = {
+        {60.0f,  60.0f,  0.5f},
+        {140.0f, 60.0f,  1.2f},   // saturates peak
+        {100.0f, 140.0f, 0.6f},
+        {180.0f, 180.0f, 0.4f}
+    };
+    Image img = create_star_field(250, 250, stars, 0.05f, 3.0f);
+
+    StarDetector::Config config;
+    config.snr_multiplier = 3.0f;
+    config.max_stars = 10;
+
+    StarCatalog catalog = StarDetector::detect(img, config);
+    REQUIRE(catalog.size() >= 3);  // at least the unsaturated ones
 }
 
 TEST_CASE("StarDetector: real FITS file", "[star_detector][integration]") {
