@@ -1,15 +1,19 @@
 // NukeX v4 — Distribution-Fitted Stacking for PixInsight
 // Copyright (c) 2026 Scott Carter. MIT License.
 
-#define MODULE_VERSION_MAJOR     4
-#define MODULE_VERSION_MINOR     0
-#define MODULE_VERSION_REVISION  0
-#define MODULE_VERSION_BUILD     6
+#include "NukeXVersion.h"
+
+// PCL's MODULE_INITIALIZE macros require these specific names; forward
+// them to the versioned values in NukeXVersion.h.
+#define MODULE_VERSION_MAJOR     NUKEX_MODULE_VERSION_MAJOR
+#define MODULE_VERSION_MINOR     NUKEX_MODULE_VERSION_MINOR
+#define MODULE_VERSION_REVISION  NUKEX_MODULE_VERSION_REVISION
+#define MODULE_VERSION_BUILD     NUKEX_MODULE_VERSION_BUILD
 #define MODULE_VERSION_LANGUAGE  eng
 
-#define MODULE_RELEASE_YEAR      2026
-#define MODULE_RELEASE_MONTH     4
-#define MODULE_RELEASE_DAY       20
+#define MODULE_RELEASE_YEAR      NUKEX_MODULE_RELEASE_YEAR
+#define MODULE_RELEASE_MONTH     NUKEX_MODULE_RELEASE_MONTH
+#define MODULE_RELEASE_DAY       NUKEX_MODULE_RELEASE_DAY
 
 #include "NukeXModule.h"
 #include "NukeXProcess.h"

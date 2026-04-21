@@ -4,10 +4,12 @@
 #include "NukeXInstance.h"
 #include "NukeXParameters.h"
 #include "NukeXProcess.h"
+#include "NukeXVersion.h"
 
 #include "NukeXProgress.h"
 #include <pcl/ImageWindow.h>
 #include <pcl/View.h>
+#include <pcl/FITSHeaderKeyword.h>
 
 // NukeX pipeline headers
 #include "nukex/stacker/stacking_engine.hpp"
@@ -17,6 +19,42 @@
 
 #include <sys/stat.h>
 #include <unistd.h>
+
+namespace {
+
+// Build a FITS keyword set that records which build of NukeX produced this
+// image and what the stacking result looked like.  Callers layer
+// image-type-specific keywords (e.g., primaryStretch label) on top.
+pcl::FITSKeywordArray base_output_keywords(
+   const char* nukex_version,
+   const char* image_kind,
+   int n_frames_processed,
+   int n_frames_failed_alignment )
+{
+   pcl::FITSKeywordArray ka;
+   ka.Append( pcl::FITSHeaderKeyword(
+      "CREATOR", pcl::IsoString( "'NukeX v" ) + nukex_version + "'",
+      "Software that produced this image" ) );
+   ka.Append( pcl::FITSHeaderKeyword(
+      "NUKEXVER", pcl::IsoString( "'" ) + nukex_version + "'",
+      "NukeX module version" ) );
+   ka.Append( pcl::FITSHeaderKeyword(
+      "NUKEXIMG", pcl::IsoString( "'" ) + image_kind + "'",
+      "NukeX output kind: stacked | noise | stretched" ) );
+   ka.Append( pcl::FITSHeaderKeyword(
+      "NFRAMES", pcl::IsoString().Format( "%d", n_frames_processed ),
+      "Number of light frames processed" ) );
+   ka.Append( pcl::FITSHeaderKeyword(
+      "NFAILALN", pcl::IsoString().Format( "%d", n_frames_failed_alignment ),
+      "Frames flagged as failed alignment (weight x 0.5)" ) );
+   ka.Append( pcl::FITSHeaderKeyword(
+      "HISTORY", pcl::IsoString(),
+      pcl::IsoString( "NukeX v" ) + nukex_version
+          + " - Distribution-Fitted Stacking" ) );
+   return ka;
+}
+
+} // anonymous namespace
 
 namespace pcl
 {
@@ -260,6 +298,13 @@ bool NukeXInstance::ExecuteGlobal()
          }
       }
 
+      // Provenance: stamp the FITS header so this window round-trips
+      // through Save/Load with NukeX identity, version, and the run's
+      // alignment-result counters intact.
+      window.SetKeywords( base_output_keywords(
+          NUKEX_VERSION_STRING, "stacked",
+          result.n_frames_processed, result.n_frames_failed_alignment ) );
+
       window.Show();
       progress.message( "Stacked image opened." );
    }
@@ -314,6 +359,28 @@ bool NukeXInstance::ExecuteGlobal()
             ::memcpy( dst, src, sw * sh * sizeof( float ) );
          }
       }
+      // Provenance on the stretched window: include the primary +
+      // finishing stretch enum labels so a user inspecting the saved
+      // FITS later can tell which curve produced the image.
+      pcl::FITSKeywordArray sw_ka = base_output_keywords(
+          NUKEX_VERSION_STRING, "stretched",
+          result.n_frames_processed, result.n_frames_failed_alignment );
+      static const char* kPrimaryNames[] = {
+          "Auto", "VeraLux", "GHS", "MTF", "ArcSinh", "Log", "Lupton", "CLAHE"
+      };
+      const int pe = static_cast<int>( primaryStretch );
+      const int ne = static_cast<int>(
+          sizeof(kPrimaryNames) / sizeof(kPrimaryNames[0]) );
+      const char* primary_name =
+          ( pe >= 0 && pe < ne ) ? kPrimaryNames[pe] : "Unknown";
+      sw_ka.Append( pcl::FITSHeaderKeyword(
+          "PRIMSTR", pcl::IsoString( "'" ) + primary_name + "'",
+          "Primary stretch curve applied" ) );
+      sw_ka.Append( pcl::FITSHeaderKeyword(
+          "FINSTR", pcl::IsoString( "'None'" ),
+          "Finishing stretch (only None enrolled today)" ) );
+      sw_win.SetKeywords( sw_ka );
+
       sw_win.Show();
       progress.message( "Stretched image opened." );
    }
@@ -339,6 +406,10 @@ bool NukeXInstance::ExecuteGlobal()
             ::memcpy( dst, src, w * h * sizeof( float ) );
          }
       }
+
+      nw.SetKeywords( base_output_keywords(
+          NUKEX_VERSION_STRING, "noise",
+          result.n_frames_processed, result.n_frames_failed_alignment ) );
 
       nw.Show();
       progress.message( "Noise map opened." );
