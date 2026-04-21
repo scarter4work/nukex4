@@ -1,5 +1,67 @@
 # NukeX v4 — Changelog
 
+## v4.0.0.7 — 2026-04-20
+
+Polish pass on top of v4.0.0.6.  No compute-path changes — pixel output
+is bit-identical to v4.0.0.6 (E2E golden hashes unchanged).  The
+delta is entirely user-facing clarity, scripting ergonomics, and test
+hygiene.
+
+### Added
+- **WARNING / CRITICAL** messages in the Process Console on low
+  alignment success rate:  > 50 % failed fires `** CRITICAL **` with
+  a remediation hint; 10–50 % fires `** WARNING **`; ≤ 10 % stays
+  quiet (some drift / clouded frames is normal).
+- **Auto-selector rationale** now names the FITS values that drove
+  the classification:  `Auto: classified as LRGB-mono (FITS
+  FILTER='L', BAYERPAT='', NAXIS3=1) -> VeraLux`.
+- **Tooltips** on every NukeX interface control: Primary / Finishing
+  Stretch dropdowns + labels, Enable GPU checkbox, frame-list tree
+  boxes, and all Add / Remove / Clear / Toggle All buttons.
+- **Validate()** now refuses to enable the Execute button when
+  `cacheDirectory` is unset-but-non-default-and-unwritable, and warns
+  at ExecuteGlobal time when fewer than 5 frames are enabled (Phase B's
+  Ceres fitters need n ≥ 5 to converge).
+- **FITS header provenance** on all output windows (`NukeX_stacked`,
+  `NukeX_noise`, `NukeX_stretched`):  `CREATOR`, `NUKEXVER`,
+  `NUKEXIMG`, `NFRAMES`, `NFAILALN`, `HISTORY` entries.  The stretched
+  window additionally carries `PRIMSTR` / `FINSTR` with the applied
+  curve names.
+
+### Changed
+- **Filter classifier** now case-folds the `FILTER` keyword before the
+  narrowband-name lookup.  Previously depended on the FITS reader's
+  uppercase normalisation; now robust to any casing upstream might
+  produce.
+- **ctest** runs all 45 tests in 94 s with no `-E` exclusion list.
+  Heavy exploratory / integration / visual / sweep cases are re-tagged
+  as opt-in Catch2 dot-prefixed tags (`[.integration]` etc.) so they
+  skip by default but are still callable via the corresponding filter.
+
+### Fixed
+- **`tools/run_e2e.sh` and `tools/release.sh`** now use `set -o
+  pipefail` so `PixInsight.sh … | tee file` surfaces a PI crash
+  instead of silently reporting success.  `run_e2e.sh` also wraps PI
+  in `timeout --kill-after=30s ${NUKEX_E2E_TIMEOUT:-3600}`.
+
+### Testing
+- Golden-hash E2E regression now covers the dropdown-sweep variants
+  (`GHS`, `MTF`, `ArcSinh`) as well as the primary path, so a
+  per-curve regression in (say) MTF while VeraLux stays stable is
+  caught bitwise.
+- New regression tests for the `isfinite` guard in `StudentTNLL::
+  Evaluate` and `ContaminationNLL::Evaluate`:  extreme-outlier and
+  all-identical-samples inputs that used to CHECK-abort the process
+  at `ceres/line_search.cc:705` now exit the fitter cleanly.
+- Thirteen mixed-case narrowband filter names (`Ha`, `ha`, `hA`,
+  `h-alpha`, `Narrowband`, `nb`, …) lock in the defensive case-fold.
+
+### Plumbing
+- Module version macros centralised in `src/module/NukeXVersion.h`
+  (previously only in `NukeXModule.cpp`, so any other translation unit
+  that wanted them had to hardcode).  Version bumps now require
+  editing one place.
+
 ## v4.0.0.6 — 2026-04-20
 
 ### Added
