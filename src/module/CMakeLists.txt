@@ -25,10 +25,17 @@ set(MODULE_SOURCES
 
 add_library(NukeX-pxm SHARED ${MODULE_SOURCES})
 
-# PCL include directories
+# PCL include directories.
+#
+# PCL headers are treated as SYSTEM includes so GCC's -Wparentheses and
+# other warnings originating inside PCL (e.g. Image.h:16807's
+# `m_side > 0 == x > m_center`) don't flood every build.  Our own code
+# is still compiled with -Wall -Wextra per the top-level CMakeLists.
 target_include_directories(NukeX-pxm PRIVATE
-    ${PCLDIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_include_directories(NukeX-pxm SYSTEM PRIVATE
+    ${PCLDIR}/include
 )
 
 # PCL compile definitions
