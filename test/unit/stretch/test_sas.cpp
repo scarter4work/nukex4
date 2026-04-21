@@ -130,7 +130,9 @@ TEST_CASE("SAS: RGB luminance_only preserves colors", "[sas]") {
 
 // ── Visual output ──
 
-TEST_CASE("SAS: visual output on M16", "[sas][visual]") {
+// Tagged [.visual] so ctest skips it by default.  Takes ~32s —
+// trips the default 30s timeout.  Invoke with:  ./test/test_sas [visual]
+TEST_CASE("SAS: visual output on M16", "[.visual][sas]") {
     auto img = test_util::load_m16_test_frame();
     if (img.empty()) { SKIP("M16 test data not available"); }
 

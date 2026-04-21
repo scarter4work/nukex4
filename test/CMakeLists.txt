@@ -6,14 +6,22 @@ target_include_directories(catch2_main PUBLIC
     "${CMAKE_SOURCE_DIR}/third_party/catch2"
 )
 
-# Helper function to add a test executable
+# Helper function to add a test executable.
+#
+# `--allow-running-no-tests` is passed so that test binaries whose
+# only cases are opt-in (Catch2 dot-prefix tags like [.diag],
+# [.integration], [.sweep], [.visual]) don't make ctest report them
+# as failed when invoked without a tag filter.  The default Catch2
+# behaviour is to exit non-zero when zero tests are selected, which
+# ctest interprets as a failure.
 function(nukex_add_test test_name test_source)
     add_executable(${test_name} ${test_source})
     target_link_libraries(${test_name} PRIVATE catch2_main ${ARGN})
     target_include_directories(${test_name} PRIVATE
         "${CMAKE_SOURCE_DIR}/third_party/catch2"
     )
-    add_test(NAME ${test_name} COMMAND ${test_name}
+    add_test(NAME ${test_name}
+             COMMAND ${test_name} --allow-running-no-tests
              WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
 endfunction()
 

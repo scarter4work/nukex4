@@ -408,7 +408,12 @@ static void run_sweep(Image& img, const char* prefix) {
 
 // ── Test cases ──
 
-TEST_CASE("CALIBRATE: S2O3 optimized sweep", "[calibrate][s2o3]") {
+// Phase-5 stretch parameter optimisation sweeps (dev-time exploration,
+// not CI regression).  Each sweep runs hundreds of candidate parameter
+// vectors and writes visual output PNGs.  Tagged [.sweep] so ctest
+// skips them by default.  Invoke explicitly with:
+//   ./test/test_calibrate [calibrate]
+TEST_CASE("CALIBRATE: S2O3 optimized sweep", "[.sweep][calibrate][s2o3]") {
     kRefProfile = kRefS2O3;
     auto img = test_util::load_m16_test_frame();
     REQUIRE(!img.empty());
@@ -419,7 +424,7 @@ TEST_CASE("CALIBRATE: S2O3 optimized sweep", "[calibrate][s2o3]") {
     REQUIRE(true);
 }
 
-TEST_CASE("CALIBRATE: HaO3 optimized sweep", "[calibrate][hao3]") {
+TEST_CASE("CALIBRATE: HaO3 optimized sweep", "[.sweep][calibrate][hao3]") {
     kRefProfile = kRefHaO3;
     std::string path = test_util::m16_data_dir() +
         "Light_M16_300.0s_Bin1_HaO3_20230901-233542_0005.fit";
@@ -432,7 +437,7 @@ TEST_CASE("CALIBRATE: HaO3 optimized sweep", "[calibrate][hao3]") {
     REQUIRE(true);
 }
 
-TEST_CASE("CALIBRATE: RGB optimized sweep", "[calibrate][rgb]") {
+TEST_CASE("CALIBRATE: RGB optimized sweep", "[.sweep][calibrate][rgb]") {
     kRefProfile = kRefRGB;
     std::string path = test_util::m16_data_dir() +
         "Light_M16_300.0s_Bin1_LPro_20230831-225018_0005.fit";

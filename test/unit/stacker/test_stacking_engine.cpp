@@ -18,8 +18,11 @@ TEST_CASE("StackingEngine: empty input produces empty result", "[engine]") {
     REQUIRE(result.n_frames_failed_alignment == 0);
 }
 
-// Integration test with real FITS data (skip if not available)
-TEST_CASE("StackingEngine: M16 integration test", "[engine][integration][!mayfail]") {
+// Integration test with real FITS data.  Tagged [.integration] so it
+// is skipped by default (takes 30s+ on typical hardware, enough to
+// trip the default ctest 30s timeout).  Invoke explicitly with:
+//   ./test/test_stacking_engine [integration]
+TEST_CASE("StackingEngine: M16 integration test", "[.integration][engine]") {
     std::string data_dir = "/home/scarter4work/projects/processing/M16/";
     if (!std::filesystem::exists(data_dir)) {
         SKIP("M16 test data not available at " + data_dir);
@@ -126,7 +129,7 @@ TEST_CASE("StackingEngine: observer receives no calls for empty input", "[engine
     REQUIRE(obs.events.empty());
 }
 
-TEST_CASE("StackingEngine: observer phases are balanced", "[engine][progress][integration][!mayfail]") {
+TEST_CASE("StackingEngine: observer phases are balanced", "[.integration][engine][progress]") {
     std::string data_dir = "/home/scarter4work/projects/processing/M16/";
     if (!std::filesystem::exists(data_dir)) {
         SKIP("M16 test data not available at " + data_dir);
@@ -160,7 +163,7 @@ TEST_CASE("StackingEngine: observer phases are balanced", "[engine][progress][in
     REQUIRE(obs.count_bar_advances() >= static_cast<int>(lights.size()));
 }
 
-TEST_CASE("StackingEngine: cancellation mid-Phase-A returns partial result", "[engine][progress][integration][!mayfail]") {
+TEST_CASE("StackingEngine: cancellation mid-Phase-A returns partial result", "[.integration][engine][progress]") {
     std::string data_dir = "/home/scarter4work/projects/processing/M16/";
     if (!std::filesystem::exists(data_dir)) {
         SKIP("M16 test data not available at " + data_dir);
@@ -193,7 +196,7 @@ TEST_CASE("StackingEngine: cancellation mid-Phase-A returns partial result", "[e
     REQUIRE(obs.all_phases_closed());
 }
 
-TEST_CASE("StackingEngine: cancellation mid-Phase-B returns partial result", "[engine][progress][integration][!mayfail]") {
+TEST_CASE("StackingEngine: cancellation mid-Phase-B returns partial result", "[.integration][engine][progress]") {
     std::string data_dir = "/home/scarter4work/projects/processing/M16/";
     if (!std::filesystem::exists(data_dir)) {
         SKIP("M16 test data not available at " + data_dir);
