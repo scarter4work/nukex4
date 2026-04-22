@@ -1,7 +1,7 @@
 # Phase 8 — Stats-Driven Stretch Parameter Tuning with Per-User Learning
 
-**Date:** 2026-04-21
-**Status:** Design approved, ready for implementation planning
+**Date:** 2026-04-21 (revised 2026-04-22: bootstrap cut deferred to Phase 8.5)
+**Status:** Design signed off, ready for implementation planning
 **Predecessor:** Phase 7 (v4.0.0.5) shipped the Auto-selector (classify filter → name a stretch). Phase 5 established Phase-5 champion params per stretch. v4.0.0.7 first real-data stack on M27 landed "a bit faint."
 
 ## Goal
@@ -21,6 +21,15 @@ Replace the current "Auto always applies Phase-5 champion defaults regardless of
 - **Telemetry or community model aggregation.** Ratings stay local to each user's machine. Sharing a bootstrap across the community happens only at release-cutting time, via Scott's personally-labeled corpus, not via telemetry.
 - **Online learning refinements** (retraining cadence beyond per-save, drift handling, explicit "forgetting" of old ratings, diff views). Deferred to Phase 9.
 
+## Release scope
+
+Phase 8 ships in two steps:
+
+- **v4.0.1.0 (Phase 8):** learning infrastructure, rating UI, per-user Layer 3 — Layer 2 ships empty.
+- **v4.0.1.x (Phase 8.5):** community bootstrap corpus → Layer 2 populated.
+
+This split pulls the ~350-session labeling work off the v4.0.1.0 critical path while leaving the four-layer architecture unchanged. On a fresh v4.0.1.0 install the fallback chain reduces to Layer 3 → Layer 1, making cold-start Auto pixel-identical to v4.0.0.8 until either the user rates a run (activates Layer 3) or Phase 8.5 ships (activates Layer 2). See "Development order and release plan" below.
+
 ## Architecture
 
 ### Four layers of prediction
@@ -35,6 +44,8 @@ Replace the current "Auto always applies Phase-5 champion defaults regardless of
 **Critical invariant:** Layers 2, 3, 4 are the *same ridge model at different training snapshots* plus one `predict()` call. Not three stacked models. The "4 layers" is a mental model for UX inspection and reset, not three independent model objects.
 
 **Cold start:** new user has zero ratings → Layer 3 is identical to Layer 2.
+
+**Initial state at v4.0.1.0 ship:** Layer 2 is empty (no `share/phase8_bootstrap_model.json`), so the fallback chain reduces to Layer 3 → Layer 1. Fresh-install Auto output is pixel-identical to v4.0.0.8. Phase 8.5 populates Layer 2 and shifts cold-start behaviour to Scott's bootstrap.
 
 **Escape hatches (Interface menu or settings):**
 - *Reset to factory* — ignore all learned layers; use Layer 1 constants.
@@ -81,8 +92,8 @@ Pre-zeroed at "just right." User only moves axes that feel off. Fast to rate (on
 
 ### Shipped assets
 
-- **`share/phase8_bootstrap.sqlite`** — read-only SQLite containing Scott's labeled bootstrap corpus (~50 rows per stretch). Built during Phase 8 development from Scott's rating sessions on real data.
-- **`share/phase8_bootstrap_model.json`** — pre-fitted coefficients from the bootstrap corpus. Loaded at module startup as Layer 2. Committed to the repo.
+- **`share/phase8_bootstrap.sqlite`** — read-only SQLite containing Scott's labeled bootstrap corpus (~50 rows per stretch). **Deferred to Phase 8.5.** v4.0.1.0 ships without this file; Layer 2 falls through to Layer 1 until Phase 8.5.
+- **`share/phase8_bootstrap_model.json`** — pre-fitted coefficients from the bootstrap corpus. Loaded at module startup as Layer 2. **Deferred to Phase 8.5.** Absent at v4.0.1.0 ship; committed to the repo at v4.0.1.x ship.
 
 ### Vendored dependency
 
@@ -253,15 +264,16 @@ On module load, `PRAGMA integrity_check` runs once. If it fails, the DB file is 
 
 ### E2E regression (existing `make e2e` harness)
 
-- New case: `lrgb_mono_ngc7635_phase8_bootstrap` — same FITS input as the existing case, Phase 8 active. Golden = pixel hash of stretched output with the shipped bootstrap. Catches "someone rebuilt the bootstrap and pixel output drifted unexpectedly."
-- Existing cases remain unchanged (they use stretch `None` or an explicit named stretch, bypassing Phase 8). Confirms Phase 8 is truly additive.
+- **v4.0.1.0:** existing cases remain unchanged. Layer 2 is absent at ship, so fresh-install Auto's pixel output is identical to v4.0.0.8 — the baseline case confirms this, which is a stronger additivity proof than a new golden would be.
+- **v4.0.1.x (Phase 8.5):** new case `lrgb_mono_ngc7635_phase8_bootstrap` — same FITS input as the existing case, Phase 8 active with the shipped bootstrap. Golden = pixel hash of stretched output with Layer 2 populated. Catches "someone rebuilt the bootstrap and pixel output drifted unexpectedly."
+- Layer 3 (user-learned) activation is covered by integration tests rather than E2E goldens, because its behaviour depends on user-specific DB state rather than shipped artifacts.
 
-### Bootstrap corpus validation
+### Bootstrap corpus validation (Phase 8.5 only)
 
-Not a unit test — a release-gate workflow step:
+Not a unit test — a Phase 8.5 release-gate workflow step. **No-op at v4.0.1.0 ship** because Layer 2 is empty.
 
-- `tools/phase8_inspect.sh` — loads shipped bootstrap coefficients, runs prediction on 5 held-out test stacks (committed as a small fixture), prints predicted params per stretch per case. Eyeball check before cutting a release.
-- Cross-validation R² per param is emitted during bootstrap training and checked into the repo next to the coefficients file. Release gate: minimum R² ≥ 0.3 per param. Low bar; catches only "model is worthless."
+- `tools/phase8_inspect.sh` — loads shipped bootstrap coefficients, runs prediction on 5 held-out test stacks (committed as a small fixture), prints predicted params per stretch per case. Eyeball check before cutting a Phase 8.5 release.
+- Cross-validation R² per param is emitted during bootstrap training and checked into the repo next to the coefficients file. Phase 8.5 release gate: minimum R² ≥ 0.3 per param. Low bar; catches only "model is worthless."
 
 ### Failure-path tests (the "NukeX4 can't break" promise)
 
@@ -286,16 +298,29 @@ Not a unit test — a release-gate workflow step:
 
 ## Development order and release plan
 
-Phase 8 is built in this order to honor the "no stubs" rule — nothing is shipped until the bootstrap model is real.
+Phase 8 is split into two releases. v4.0.1.0 delivers all the learning infrastructure with Layer 2 empty. v4.0.1.x (Phase 8.5) adds Scott's labeled bootstrap. This keeps the v4.0.1.0 critical path short and the four-layer architecture untouched.
+
+Nothing in Phase 8 is a stub: Layer 2's absence is a real, exercised fallback path, not a placeholder. The "no stubs" rule is honored because the missing artifact is not missing code — the code handles the missing artifact correctly and is tested doing so.
+
+### Phase 8 — v4.0.1.0
 
 1. **Infrastructure (unreleased internal):** `image_stats`, `rating_db`, `ridge_regression`, `param_model`, `train_model` library code. Unit tests pass.
-2. **Integration (unreleased internal):** wire into `stretch_factory` and `NukeXInstance`. Rating dialog + Interface button. Opt-out setting. Module still uses factory defaults because no bootstrap model exists yet.
-3. **Corpus labeling (Scott's session work):** Scott runs the unreleased build on ~50 real stacks across filter classes / target types, rates each. User DB accumulates rows.
-4. **Bootstrap cut:** export Scott's user DB → build bootstrap.sqlite + bootstrap_model.json. Commit both to `share/`.
-5. **E2E goldens regenerated** for the new `lrgb_mono_ngc7635_phase8_bootstrap` case with the shipped bootstrap active.
-6. **Public release — v4.0.1.0.** Phase 8 is now "live." New users get Scott's taste out of the box via Layer 2; their own ratings refine Layer 3 over time.
+2. **Integration (unreleased internal):** wire into `stretch_factory` and `NukeXInstance`. Rating dialog + Interface button. Opt-out setting. Local smoke test: run → rate → re-run verifies Layer 3 picks up the rating.
+3. **Public release — v4.0.1.0.** Phase 8 is live but Layer 2 is absent. Fresh-install Auto behaviour is pixel-identical to v4.0.0.8 (Layer 3 empty → Layer 2 absent → Layer 1 factory defaults). After the user rates one run, their Layer 3 activates and per-image prediction takes over for that stretch.
 
-The internal-only builds in steps 1-3 are not tagged releases. Step 6 is the first public Phase 8 ship.
+The existing E2E goldens in `test/fixtures/golden/` remain valid at v4.0.1.0 ship because the no-rating / no-bootstrap Auto path is bit-identical to v4.0.0.8.
+
+### Phase 8.5 — community bootstrap add (v4.0.1.x)
+
+Split out from Phase 8 to keep the v4.0.1.0 critical path short. Can start any time v4.0.1.0 is stable. Scope:
+
+1. **Corpus labeling:** Scott runs v4.0.1.0 (or a private build) on ~50 real stacks per stretch across filter classes / target types — roughly 350 rating sessions, estimated 2-3 focused afternoons.
+2. **Bootstrap cut:** export Scott's user DB → build `share/phase8_bootstrap.sqlite` + `share/phase8_bootstrap_model.json`. Commit both.
+3. **E2E goldens:** add `lrgb_mono_ngc7635_phase8_bootstrap` case exercising the shipped bootstrap; pixel hash regresses against re-cuts of the bootstrap.
+4. **Release gate:** cross-validation R² ≥ 0.3 per param; `tools/phase8_inspect.sh` eyeball check.
+5. **Public release — v4.0.1.x.** Cold-start users now get Scott's taste via Layer 2; rating-informed users continue to refine Layer 3.
+
+Phase 8.5's exact version number (v4.0.1.1 vs v4.0.2.0) is deferred until ship time — it depends on whether any non-bootstrap work accumulates on `main` in the interim.
 
 ## Deferred to Phase 9 and beyond
 
@@ -308,7 +333,7 @@ The internal-only builds in steps 1-3 are not tagged releases. Step 6 is the fir
 
 ## Open questions / tracked risks
 
-1. **Bootstrap corpus diversity.** Fifty rows per stretch × seven stretches = 350 rating sessions for Scott. Roughly two to three focused afternoons on varied real data. Biggest risk to the timeline.
+1. **Bootstrap corpus diversity (Phase 8.5).** Fifty rows per stretch × seven stretches = 350 rating sessions for Scott. Roughly two to three focused afternoons on varied real data. De-risked from v4.0.1.0 by moving the entire bootstrap cut into Phase 8.5 — it is now no longer on the v4.0.1.0 critical path.
 2. **Per-stretch ridge coefficient count.** With ~40 features and small bootstrap (~50 rows), feature selection (drop near-zero-coefficient features after initial fit) may be necessary to avoid noisy predictions. Deferred to implementation.
 3. **PI module settings persistence.** "Don't show rating popup" depends on PCL's module-settings mechanism working reliably across PI restarts. Worth a smoke test early in implementation before committing to the opt-out UX.
 
