@@ -52,10 +52,26 @@ else()
     set(_nukex_sqlite_inc  ${sqlite_amalgamation_SOURCE_DIR})
 endif()
 
+# nlohmann/json is header-only, vendored via FetchContent. Used for
+# the coefficients file and for params_json round-trips in the DB.
+include(FetchContent)
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG        v3.11.3
+    GIT_SHALLOW    TRUE
+)
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+set(JSON_Install    OFF CACHE INTERNAL "")
+FetchContent_MakeAvailable(nlohmann_json)
+
 # Learning library sources added in Task 4.
 add_library(nukex4_learning INTERFACE)
 target_include_directories(nukex4_learning INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
-target_link_libraries(nukex4_learning INTERFACE ${_nukex_sqlite_libs})
+target_link_libraries(nukex4_learning INTERFACE
+    ${_nukex_sqlite_libs}
+    nlohmann_json::nlohmann_json
+)
 target_compile_features(nukex4_learning INTERFACE cxx_std_17)
