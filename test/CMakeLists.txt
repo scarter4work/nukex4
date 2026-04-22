@@ -77,6 +77,9 @@ nukex_add_test(test_sas unit/stretch/test_sas.cpp nukex4_stretch test_util)
 nukex_add_test(test_tier1 unit/stretch/test_tier1.cpp nukex4_stretch test_util)
 nukex_add_test(test_calibrate unit/stretch/test_calibrate.cpp nukex4_stretch test_util)
 
+# Learning library tests (Phase 8 stats-driven tuning)
+nukex_add_test(test_ridge_regression unit/learning/test_ridge_regression.cpp nukex4_learning)
+
 # GPU tests (link nukex4_stacker to resolve FrameCache symbols)
 nukex_add_test(test_gpu_context unit/gpu/test_gpu_context.cpp nukex4_gpu)
 nukex_add_test(test_gpu_cpu_fallback unit/gpu/test_gpu_cpu_fallback.cpp nukex4_gpu nukex4_stacker)
