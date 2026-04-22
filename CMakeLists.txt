@@ -76,6 +76,7 @@ add_subdirectory(src/lib/combine)
 add_subdirectory(src/lib/gpu)
 add_subdirectory(src/lib/stacker)
 add_subdirectory(src/lib/stretch)
+add_subdirectory(src/lib/learning)
 add_subdirectory(src/module)
 
 option(NUKEX_BUILD_TESTS "Build unit and integration tests" ON)
