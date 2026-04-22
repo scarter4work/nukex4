@@ -20,4 +20,20 @@ void LogStretch::apply(Image& img) const {
     clamp_image(img);
 }
 
+std::map<std::string, std::pair<float, float>> LogStretch::param_bounds() const {
+    return {
+        {"alpha", {1.0f, 100000.0f}},
+    };
+}
+
+bool LogStretch::set_param(const std::string& n, float v) {
+    if (n == "alpha") { alpha = v; return true; }
+    return false;
+}
+
+std::optional<float> LogStretch::get_param(const std::string& n) const {
+    if (n == "alpha") return alpha;
+    return std::nullopt;
+}
+
 } // namespace nukex

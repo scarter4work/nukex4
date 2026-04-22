@@ -76,6 +76,7 @@ nukex_add_test(test_ots unit/stretch/test_ots.cpp nukex4_stretch test_util)
 nukex_add_test(test_sas unit/stretch/test_sas.cpp nukex4_stretch test_util)
 nukex_add_test(test_tier1 unit/stretch/test_tier1.cpp nukex4_stretch test_util)
 nukex_add_test(test_calibrate unit/stretch/test_calibrate.cpp nukex4_stretch test_util)
+nukex_add_test(test_param_bounds unit/stretch/test_param_bounds.cpp nukex4_stretch)
 
 # Learning library tests (Phase 8 stats-driven tuning)
 nukex_add_test(test_ridge_regression unit/learning/test_ridge_regression.cpp nukex4_learning)

@@ -177,4 +177,26 @@ void CLAHEStretch::apply(Image& img) const {
     clamp_image(img);
 }
 
+std::map<std::string, std::pair<float, float>> CLAHEStretch::param_bounds() const {
+    return {
+        {"clip_limit", {0.5f,  5.0f}},
+        {"tile_cols",  {2.0f, 32.0f}},
+        {"tile_rows",  {2.0f, 32.0f}},
+    };
+}
+
+bool CLAHEStretch::set_param(const std::string& n, float v) {
+    if (n == "clip_limit") { clip_limit = v;                           return true; }
+    if (n == "tile_cols")  { tile_cols  = static_cast<int>(v + 0.5f);  return true; }
+    if (n == "tile_rows")  { tile_rows  = static_cast<int>(v + 0.5f);  return true; }
+    return false;
+}
+
+std::optional<float> CLAHEStretch::get_param(const std::string& n) const {
+    if (n == "clip_limit") return clip_limit;
+    if (n == "tile_cols")  return static_cast<float>(tile_cols);
+    if (n == "tile_rows")  return static_cast<float>(tile_rows);
+    return std::nullopt;
+}
+
 } // namespace nukex

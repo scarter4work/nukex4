@@ -133,4 +133,32 @@ void GHSStretch::apply(Image& img) const {
     clamp_image(img);
 }
 
+std::map<std::string, std::pair<float, float>> GHSStretch::param_bounds() const {
+    return {
+        {"D",  {0.0f, 15.0f}},
+        {"b",  {-5.0f, 5.0f}},
+        {"SP", {0.0f, 1.0f}},
+        {"LP", {0.0f, 1.0f}},
+        {"HP", {0.0f, 1.0f}},
+    };
+}
+
+bool GHSStretch::set_param(const std::string& n, float v) {
+    if (n == "D")  { D  = v; return true; }
+    if (n == "b")  { b  = v; return true; }
+    if (n == "SP") { SP = v; return true; }
+    if (n == "LP") { LP = v; return true; }
+    if (n == "HP") { HP = v; return true; }
+    return false;
+}
+
+std::optional<float> GHSStretch::get_param(const std::string& n) const {
+    if (n == "D")  return D;
+    if (n == "b")  return b;
+    if (n == "SP") return SP;
+    if (n == "LP") return LP;
+    if (n == "HP") return HP;
+    return std::nullopt;
+}
+
 } // namespace nukex

@@ -31,4 +31,26 @@ void MTFStretch::apply(Image& img) const {
     clamp_image(img);
 }
 
+std::map<std::string, std::pair<float, float>> MTFStretch::param_bounds() const {
+    return {
+        {"midtone",    {0.0f, 1.0f}},
+        {"shadows",    {0.0f, 0.1f}},
+        {"highlights", {0.9f, 1.0f}},
+    };
+}
+
+bool MTFStretch::set_param(const std::string& n, float v) {
+    if (n == "midtone")    { midtone    = v; return true; }
+    if (n == "shadows")    { shadows    = v; return true; }
+    if (n == "highlights") { highlights = v; return true; }
+    return false;
+}
+
+std::optional<float> MTFStretch::get_param(const std::string& n) const {
+    if (n == "midtone")    return midtone;
+    if (n == "shadows")    return shadows;
+    if (n == "highlights") return highlights;
+    return std::nullopt;
+}
+
 } // namespace nukex

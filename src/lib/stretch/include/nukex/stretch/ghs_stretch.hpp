@@ -26,6 +26,10 @@ public:
     void  apply(Image& img) const override;
     float apply_scalar(float x) const override;
 
+    std::map<std::string, std::pair<float, float>> param_bounds() const override;
+    bool                                           set_param(const std::string&, float) override;
+    std::optional<float>                           get_param(const std::string&) const override;
+
 private:
     /// Base transformation T(x) for x >= 0, parameterized by D and b.
     /// T(0) = 0, T'(0) = D (peak gradient at origin).

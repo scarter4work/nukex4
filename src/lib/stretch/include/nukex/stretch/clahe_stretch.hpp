@@ -29,6 +29,10 @@ public:
     void  apply(Image& img) const override;
     float apply_scalar(float x) const override { return x; } // Spatial op
 
+    std::map<std::string, std::pair<float, float>> param_bounds() const override;
+    bool                                           set_param(const std::string&, float) override;
+    std::optional<float>                           get_param(const std::string&) const override;
+
 private:
     /// Build clipped CDF for a tile region.
     std::vector<float> build_tile_cdf(const float* data, int w, int h,

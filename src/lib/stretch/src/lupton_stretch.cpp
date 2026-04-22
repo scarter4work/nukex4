@@ -82,4 +82,23 @@ void LuptonStretch::apply(Image& img) const {
     }
 }
 
+std::map<std::string, std::pair<float, float>> LuptonStretch::param_bounds() const {
+    return {
+        {"Q",       {0.0f, 50.0f}},
+        {"stretch", {0.0f, 100.0f}},
+    };
+}
+
+bool LuptonStretch::set_param(const std::string& n, float v) {
+    if (n == "Q")       { Q       = v; return true; }
+    if (n == "stretch") { stretch = v; return true; }
+    return false;
+}
+
+std::optional<float> LuptonStretch::get_param(const std::string& n) const {
+    if (n == "Q")       return Q;
+    if (n == "stretch") return stretch;
+    return std::nullopt;
+}
+
 } // namespace nukex

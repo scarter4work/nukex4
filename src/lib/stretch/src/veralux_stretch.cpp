@@ -74,4 +74,26 @@ void VeraLuxStretch::apply(Image& img) const {
     }
 }
 
+std::map<std::string, std::pair<float, float>> VeraLuxStretch::param_bounds() const {
+    return {
+        {"log_D",             {0.0f,  7.0f}},
+        {"protect_b",         {0.1f, 15.0f}},
+        {"convergence_power", {1.0f, 10.0f}},
+    };
+}
+
+bool VeraLuxStretch::set_param(const std::string& n, float v) {
+    if (n == "log_D")             { log_D = v;             return true; }
+    if (n == "protect_b")         { protect_b = v;         return true; }
+    if (n == "convergence_power") { convergence_power = v; return true; }
+    return false;
+}
+
+std::optional<float> VeraLuxStretch::get_param(const std::string& n) const {
+    if (n == "log_D")             return log_D;
+    if (n == "protect_b")         return protect_b;
+    if (n == "convergence_power") return convergence_power;
+    return std::nullopt;
+}
+
 } // namespace nukex
