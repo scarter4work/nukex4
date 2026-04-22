@@ -35,6 +35,9 @@ Testing/
 # Claude Code agent-local state
 .claude/
 
+# Visual brainstorming companion mockups (superpowers:brainstorming skill)
+.superpowers/
+
 # Temporary
 *.tmp
 *.bak
