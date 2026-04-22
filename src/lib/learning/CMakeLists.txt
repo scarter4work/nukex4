@@ -36,6 +36,9 @@ else()
     target_include_directories(sqlite3_vendored PUBLIC
         ${sqlite_amalgamation_SOURCE_DIR}
     )
+    # WAL_SYNCHRONOUS sets the synchronous level *when* WAL is active;
+    # the connection must still request WAL at runtime via
+    # PRAGMA journal_mode=WAL; (see open_rating_db in Task 6).
     target_compile_definitions(sqlite3_vendored PRIVATE
         SQLITE_ENABLE_FTS5=0
         SQLITE_ENABLE_RTREE=0
