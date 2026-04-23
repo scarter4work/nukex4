@@ -1,6 +1,7 @@
 add_library(nukex4_stretch STATIC
     src/stretch_pipeline.cpp
     src/stretch_utils.cpp
+    src/image_stats.cpp
     src/mtf_stretch.cpp
     src/arcsinh_stretch.cpp
     src/log_stretch.cpp
