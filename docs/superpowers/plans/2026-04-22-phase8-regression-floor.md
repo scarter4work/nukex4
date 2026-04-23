@@ -82,3 +82,42 @@ Operationally: any commit in the Phase 8 plan that causes `make e2e` to
 fail a golden match has broken the additivity invariant. Revert or fix it
 before proceeding. Tasks 15 and 21 of the plan are explicit regression gates
 that re-verify against this floor.
+
+## Checkpoint after Task 14 (mid-plan gate) — 2026-04-22 23:30 EDT
+
+**STATUS ok on all 4 cases.** Phase 8 infrastructure (Tasks 2-14) is truly
+additive — zero pixel drift from the v4.0.0.8 baseline.
+
+Verified against the freshly-built, signed module at
+`/opt/PixInsight/bin/NukeX-pxm.so` (commit `45d724b` + signed):
+
+| Case | stacked | noise | stretched |
+|---|---|---|---|
+| `lrgb_mono_ngc7635` primary | `d069786a` ✅ | `b9ec9edd` ✅ | `83dfad37` ✅ |
+| `lrgb_mono_ngc7635` GHS sweep | — | — | `046c8b25` ✅ |
+| `lrgb_mono_ngc7635` MTF sweep | — | — | `b890bf1e` ✅ |
+| `lrgb_mono_ngc7635` ArcSinh sweep | — | — | `f7ea96b4` ✅ |
+
+All six hashes match the committed baseline byte-for-byte. This confirms:
+
+1. Adding the vendored SQLite amalgamation (`e6c8076`) did not drift any
+   pixel path.
+2. Adding the vendored nlohmann/json header (`5cb52e4`) did not drift
+   any pixel path.
+3. Extending `StretchOp` with `param_bounds()` / `set_param()` /
+   `get_param()` across all 7 stretches (`c2a99da`) did not change any
+   factory default — the new virtual methods are purely additive.
+4. The `Phase8Context` optional-argument wiring in `build_primary`
+   (`45d724b`) is dormant when `NukeXInstance` passes no context, which
+   it does not yet.
+
+**Harness fix landed alongside the checkpoint** — commit `12cc6a7`
+hardens `tools/run_e2e.sh` with `--default-modules` on the PI invocation,
+so future runs are robust against PI's persistent install-list falling
+out of sync with the on-disk binary (the issue that first masked this
+otherwise-green run).
+
+ctest: 53/53 serial green (was 46 at baseline + 7 new test binaries).
+Phase B primary elapsed: 282 s (well within the 1,971,756 ms ceiling).
+
+Safe to proceed to Task 16 (RatingDialog).
