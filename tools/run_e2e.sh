@@ -33,8 +33,14 @@ rm -rf "${OUTPUT_ROOT}"
 # the longest observed good E2E on NGC7635 (primary + 3 sweeps ≈ 20 min)
 # and ~1.7× the worst-case fresh-GPU-compile + cold-cache baseline.
 NUKEX_E2E_TIMEOUT="${NUKEX_E2E_TIMEOUT:-3600}"
+# --default-modules forces PI to rescan its bin/ directory on startup and
+# re-register every module found there.  Without this, PI relies on its
+# persistent "installed modules" list from user settings, which can fall
+# out of sync with the on-disk binaries (e.g. after a sign + reinstall
+# cycle during dev).  For a test harness that installs fresh modules, the
+# fresh-scan behaviour is what we want every run.
 timeout --kill-after=30s "${NUKEX_E2E_TIMEOUT}" \
-    /opt/PixInsight/bin/PixInsight.sh --automation-mode --force-exit \
+    /opt/PixInsight/bin/PixInsight.sh --automation-mode --force-exit --default-modules \
         "-r=${REPO}/tools/validate_e2e.js,manifest=${MANIFEST}${REGEN_ARG}" \
         2>&1 | tee "${E2E_LOG}"
 
