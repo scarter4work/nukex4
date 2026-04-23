@@ -3,6 +3,9 @@
 
 #include "fits_metadata.hpp"
 #include "nukex/stretch/stretch_op.hpp"
+#include "nukex/stretch/image_stats.hpp"
+#include "nukex/stretch/layer_loader.hpp"
+
 #include <memory>
 #include <string>
 
@@ -19,9 +22,17 @@ enum class FinishingStretch {
     None = 0,
 };
 
+// NEW: optional Phase 8 context. When loader is null, behaviour is identical
+// to pre-Phase-8 -- factory defaults only.
+struct Phase8Context {
+    const LayerLoader* loader      = nullptr;
+    const ImageStats*  stats       = nullptr;  // for this stack, linear
+};
+
 std::unique_ptr<StretchOp> build_primary(PrimaryStretch e,
                                          const FITSMetadata& meta,
-                                         std::string& out_log_line);
+                                         std::string& out_log_line,
+                                         const Phase8Context* p8 = nullptr);
 
 std::unique_ptr<StretchOp> build_finishing(FinishingStretch e);
 

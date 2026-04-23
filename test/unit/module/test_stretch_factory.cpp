@@ -8,6 +8,8 @@
 #include "nukex/stretch/log_stretch.hpp"
 #include "nukex/stretch/lupton_stretch.hpp"
 #include "nukex/stretch/clahe_stretch.hpp"
+#include "nukex/stretch/layer_loader.hpp"
+#include "nukex/stretch/image_stats.hpp"
 
 using namespace nukex;
 
@@ -43,4 +45,44 @@ TEST_CASE("build_primary: all named enums produce the correct op type", "[module
 
 TEST_CASE("build_finishing: None returns nullptr", "[module][stretch_factory]") {
     REQUIRE(build_finishing(FinishingStretch::None) == nullptr);
+}
+
+TEST_CASE("build_primary Auto: no Phase 8 context leaves op at factory defaults",
+          "[module][stretch_factory][phase8]") {
+    FITSMetadata meta; meta.filter = "L";
+    std::string log;
+    auto op = build_primary(PrimaryStretch::Auto, meta, log, nullptr);
+    REQUIRE(op != nullptr);
+    // Log does not mention Phase 8 when no context is passed
+    REQUIRE(log.find("Phase 8") == std::string::npos);
+}
+
+TEST_CASE("build_primary Auto: empty LayerLoader falls through to factory",
+          "[module][stretch_factory][phase8]") {
+    LayerLoader empty_loader("", "");
+    ImageStats stats;
+    Phase8Context ctx{&empty_loader, &stats};
+
+    FITSMetadata meta; meta.filter = "L";
+    std::string log;
+    auto op = build_primary(PrimaryStretch::Auto, meta, log, &ctx);
+    REQUIRE(op != nullptr);
+    REQUIRE(log.find("Layer 1") != std::string::npos);
+    // VeraLux factory default log_D is 2.0 -- unchanged
+    auto* v = dynamic_cast<VeraLuxStretch*>(op.get());
+    if (v) REQUIRE(v->log_D == 2.0f);
+}
+
+TEST_CASE("build_primary: explicit enum ignores Phase 8 context",
+          "[module][stretch_factory][phase8]") {
+    LayerLoader empty_loader("", "");
+    ImageStats stats;
+    Phase8Context ctx{&empty_loader, &stats};
+
+    FITSMetadata meta;
+    std::string log;
+    auto op = build_primary(PrimaryStretch::GHS, meta, log, &ctx);
+    REQUIRE(op != nullptr);
+    REQUIRE(log.empty());  // explicit path never logs Phase 8 metadata
+    REQUIRE(dynamic_cast<GHSStretch*>(op.get()) != nullptr);
 }

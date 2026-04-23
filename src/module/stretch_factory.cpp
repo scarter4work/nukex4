@@ -9,12 +9,35 @@
 #include "nukex/stretch/lupton_stretch.hpp"
 #include "nukex/stretch/clahe_stretch.hpp"
 
+#include <sstream>
+
 namespace nukex {
+
+static void phase8_apply(StretchOp& op,
+                         const Phase8Context& ctx,
+                         std::string& log_line) {
+    if (ctx.loader == nullptr || ctx.stats == nullptr) {
+        log_line += " | Phase 8: inactive (no context)";
+        return;
+    }
+    auto active = ctx.loader->active_for_stretch(op.name);
+    if (active.layer == ActiveLayer::None || active.model == nullptr) {
+        log_line += " | Phase 8: " + active.description + " -> factory defaults";
+        return;
+    }
+    const bool applied = active.model->predict_and_apply(*ctx.stats, op);
+    std::ostringstream oss;
+    oss << " | Phase 8: " << active.description << (applied ? " applied" : " no-op");
+    log_line += oss.str();
+}
 
 std::unique_ptr<StretchOp> build_primary(PrimaryStretch e,
                                          const FITSMetadata& meta,
-                                         std::string& out_log_line) {
+                                         std::string& out_log_line,
+                                         const Phase8Context* p8) {
     out_log_line.clear();
+    std::unique_ptr<StretchOp> op;
+
     switch (e) {
         case PrimaryStretch::Auto: {
             // Pass the full metadata to select_auto so the log line can
@@ -23,7 +46,11 @@ std::unique_ptr<StretchOp> build_primary(PrimaryStretch e,
             // unexpected auto-selection.
             auto sel = select_auto(meta);
             out_log_line = std::move(sel.log_line);
-            return std::move(sel.op);
+            op = std::move(sel.op);
+            if (op && p8 != nullptr) {
+                phase8_apply(*op, *p8, out_log_line);
+            }
+            return op;
         }
         case PrimaryStretch::VeraLux: return std::make_unique<VeraLuxStretch>();
         case PrimaryStretch::GHS:     return std::make_unique<GHSStretch>();
@@ -33,8 +60,7 @@ std::unique_ptr<StretchOp> build_primary(PrimaryStretch e,
         case PrimaryStretch::Lupton:  return std::make_unique<LuptonStretch>();
         case PrimaryStretch::CLAHE:   return std::make_unique<CLAHEStretch>();
     }
-    [[maybe_unused]] std::unique_ptr<StretchOp> unreachable;
-    return unreachable;
+    return nullptr;
 }
 
 std::unique_ptr<StretchOp> build_finishing(FinishingStretch /*e*/) {
