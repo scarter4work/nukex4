@@ -43,4 +43,24 @@ private:
     std::map<std::string, ParamCoefficients> per_param_;
 };
 
+// Free functions: one file holds the full per-stretch map.
+//
+// Format (JSON):
+//   {
+//     "schema_version": 1,
+//     "stretches": {
+//       "VeraLux": {
+//         "log_D": { "feature_mean": [...], "feature_std": [...],
+//                    "coefficients": [...], "intercept": 3.5,
+//                    "lambda": 1.0, "n_train_rows": 42, "cv_r_squared": 0.31 },
+//         ...
+//       },
+//       ...
+//     }
+//   }
+using ParamModelMap = std::map<std::string, ParamModel>;
+
+bool write_param_models_json(const ParamModelMap& models, const std::string& path);
+bool read_param_models_json (const std::string& path, ParamModelMap& out);
+
 } // namespace nukex

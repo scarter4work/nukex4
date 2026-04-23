@@ -83,3 +83,60 @@ TEST_CASE("ParamModel: NaN stats row falls through",
     REQUIRE_FALSE(m.predict_and_apply(s, op));
     REQUIRE(op.log_D == 2.0f);
 }
+
+#include <filesystem>
+#include <fstream>
+namespace fs = std::filesystem;
+
+TEST_CASE("ParamModelMap round-trip through JSON", "[stretch][param_model][json]") {
+    const auto path = fs::temp_directory_path() / "nukex_param_model_rt.json";
+    fs::remove(path);
+
+    ParamCoefficients c;
+    c.feature_mean = std::vector<double>(29, 0.5);
+    c.feature_std  = std::vector<double>(29, 1.0);
+    c.coefficients = std::vector<double>(29, 0.0);
+    c.coefficients[0] = 1.5;
+    c.intercept = 2.0;
+    c.lambda = 1.0;
+    c.n_train_rows = 42;
+    c.cv_r_squared = 0.45;
+
+    ParamModel veralux("VeraLux");
+    veralux.add_param("log_D", c);
+
+    ParamModelMap in;
+    in.emplace("VeraLux", std::move(veralux));
+
+    REQUIRE(write_param_models_json(in, path.string()));
+
+    ParamModelMap out;
+    REQUIRE(read_param_models_json(path.string(), out));
+    REQUIRE(out.count("VeraLux") == 1);
+    const auto& loaded = out.at("VeraLux");
+    REQUIRE(loaded.has_param("log_D"));
+    const auto& lc = loaded.per_param().at("log_D");
+    REQUIRE(lc.intercept == Catch::Approx(2.0));
+    REQUIRE(lc.n_train_rows == 42);
+    REQUIRE(lc.coefficients[0] == Catch::Approx(1.5));
+    fs::remove(path);
+}
+
+TEST_CASE("read_param_models_json: missing file returns false",
+          "[stretch][param_model][json]") {
+    ParamModelMap out;
+    REQUIRE_FALSE(read_param_models_json("/tmp/does_not_exist_12345.json", out));
+    REQUIRE(out.empty());
+}
+
+TEST_CASE("read_param_models_json: malformed file returns false",
+          "[stretch][param_model][json]") {
+    const auto path = fs::temp_directory_path() / "nukex_malformed_model.json";
+    {
+        std::ofstream f(path);
+        f << "{ not valid json";
+    }
+    ParamModelMap out;
+    REQUIRE_FALSE(read_param_models_json(path.string(), out));
+    fs::remove(path);
+}

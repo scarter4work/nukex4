@@ -23,7 +23,7 @@ target_include_directories(nukex4_stretch
 )
 
 target_link_libraries(nukex4_stretch
-    PUBLIC nukex4_core nukex4_io
+    PUBLIC nukex4_core nukex4_io nukex4_learning
 )
 
 target_compile_features(nukex4_stretch PUBLIC cxx_std_17)
