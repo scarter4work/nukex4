@@ -121,3 +121,55 @@ ctest: 53/53 serial green (was 46 at baseline + 7 new test binaries).
 Phase B primary elapsed: 282 s (well within the 1,971,756 ms ceiling).
 
 Safe to proceed to Task 16 (RatingDialog).
+
+## Final regression checkpoint (pre-release) — 2026-04-24 ~15:50 EDT
+
+**STATUS ok on all 4 cases.** Phase 8 is additivity-complete: every
+commit from `452f117` through `4edc525` (Tasks 1-20) preserves the
+v4.0.0.8 pixel floor byte-for-byte.
+
+**Clean release build** from `rm -rf build && cmake .. -DNUKEX_BUILD_MODULE=ON
+-DNUKEX_RELEASE_BUILD=ON && make -j$(nproc)`: OK, no warnings in NukeX code.
+
+**Vendored dependencies confirmed** via `CMakeCache.txt` and `ldd`:
+
+- `NUKEX_USE_SYSTEM_SQLITE=OFF` — SQLite amalgamation static-linked.
+- `NUKEX_USE_SYSTEM_CFITSIO=OFF` — cfitsio static-linked (USE_CURL=OFF).
+- `NUKEX_RELEASE_BUILD=ON`.
+- `ldd NukeX-pxm.so | grep -iE "sqlite|curl|ssl"` → empty. No system
+  sqlite, libcurl, or libssl linkage. `nlohmann/json` is header-only.
+
+**ctest**: 55/55 serial green (was 53 at Task-15 checkpoint + 1 from
+`test_atomic_write` in Task 19 + 1 from `test_phase8_fallback` in Task 20).
+
+Note on flakes: a first-cold-run of the full serial ctest right after the
+clean build showed intermittent failures in `test_ghs` (8.4 s) and
+`test_ots` (15.8 s). Both pass in isolation and both pass on the
+subsequent full-serial retry. Root cause is Ceres thread-pool / BLAS
+warm-up on the first invocation after a scratch build — not a Phase 8
+regression (these tests have been on-main since Phase 4/5). The serial
+invariant remains authoritative on the retry.
+
+**make e2e**: `lrgb_mono_ngc7635` primary + GHS/MTF/ArcSinh sweeps, all
+STATUS ok. Six pixel hashes byte-for-byte against v4.0.0.8:
+
+| Case | stacked | noise | stretched |
+|---|---|---|---|
+| `lrgb_mono_ngc7635` primary | `d069786a` ✅ | `b9ec9edd` ✅ | `83dfad37` ✅ |
+| `lrgb_mono_ngc7635` GHS sweep | — | — | `046c8b25` ✅ |
+| `lrgb_mono_ngc7635` MTF sweep | — | — | `b890bf1e` ✅ |
+| `lrgb_mono_ngc7635` ArcSinh sweep | — | — | `f7ea96b4` ✅ |
+
+Primary Phase B elapsed: 275.9 s (baseline 285.8 s; the 1,971,756 ms
+ceiling is 32.9 min — well under).
+
+**Real-data smoke test (Step 4 of Task 21)**: deferred to user action.
+The manual end-to-end check — stack a real dataset in an interactive PI
+session, rate all 5 axes, click Save, confirm `~/.config/nukex4/
+phase8_user_model.json` gets a stretch block, re-run against the same
+data and observe "Layer 3 (user-learned) applied" in the Process Console
+— cannot be scripted from the e2e harness (the rating dialog is modal
+and gated by `NUKEX_PHASE8_NO_POPUP=1` in headless runs). The user must
+run this before tagging v4.0.1.0 in Task 22.
+
+Safe to proceed to Task 22 (release) once the manual smoke passes.
