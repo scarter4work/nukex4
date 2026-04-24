@@ -18,7 +18,10 @@
 #include "nukex/stretch/stretch_pipeline.hpp"
 #include "nukex/stretch/image_stats.hpp"
 #include "nukex/stretch/layer_loader.hpp"
+#include "nukex/stretch/param_model.hpp"
 #include "nukex/learning/rating_db.hpp"
+#include "nukex/learning/train_model.hpp"
+#include "nukex/learning/atomic_write.hpp"
 #include "fits_metadata.hpp"
 #include "stretch_factory.hpp"
 
@@ -30,8 +33,12 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>   // std::getenv
+#include <filesystem>
+#include <fstream>
 #include <random>
+#include <sstream>
 #include <string>
+#include <utility>
 
 namespace {
 
@@ -117,15 +124,150 @@ std::string op_trainable_params_json( const nukex::StretchOp& op )
 namespace pcl
 {
 
-// Task 17 stub for Task 19, promoted to a NukeXInstance method in Task 18 so
-// NukeXInterface's "Rate last run" button can call it too.
-// TODO(Task 19): replace body with atomic-write impl (tmp + fsync + rename).
-void NukeXInstance::SaveRatingFromLastRun( const pcl::RatingResult& /*res*/ )
+// Task 19: persist the user's rating row, retrain Layer 3 for this stretch,
+// and atomically replace the user-model JSON. Called from ExecuteGlobal's
+// rating popup *and* from NukeXInterface's "Rate last run" button (Task 18).
+//
+// Path discipline: we use the paths stashed on lastRun at Execute time, not
+// a fresh resolve_user_data_paths() call. If HOME changed between Execute
+// and Save (rare, but e.g. user switching env), the row goes to the same DB
+// the predict path read from -- no drift between Layer 3 reads and writes.
+void NukeXInstance::SaveRatingFromLastRun( const pcl::RatingResult& res )
 {
-   // Intentionally empty until Task 19 — the rating is collected but not
-   // persisted here. E2E regression is unaffected because no file I/O
-   // happens and because this path only runs when the user clicks Save,
-   // which the headless harness explicitly does not do.
+   if ( !lastRun.valid )
+      return;
+
+   pcl::Console console;
+
+   // Open (or create) the per-user rating DB at the path we resolved at
+   // Execute time. If the DB can't be opened, the rating is discarded --
+   // we never silently "kind of saved it".
+   sqlite3* db = nukex::learning::open_rating_db( lastRun.user_db_path );
+   if ( db == nullptr )
+   {
+      console.CriticalLn( String( "NukeX: couldn't open rating DB; rating discarded." ) );
+      return;
+   }
+
+   // Build the RunRecord. ImageStats::to_feature_row() returns the same
+   // 29-column vector the predict path consumed, so training reads exactly
+   // what prediction saw (24 per-channel followed by 5 global stats).
+   nukex::learning::RunRecord rec;
+   rec.run_id           = lastRun.run_id;
+   rec.created_at_unix  = lastRun.created_at_unix;
+   rec.stretch_name     = lastRun.stretch_name;
+   rec.target_class     = lastRun.target_class;
+   rec.filter_class     = lastRun.filter_class;
+
+   const auto feature_row = lastRun.stats.to_feature_row();
+   for ( int i = 0; i < 24; ++i )
+      rec.per_channel_stats[i] = feature_row[i];
+   rec.bright_concentration = lastRun.stats.bright_concentration;
+   rec.color_rg             = lastRun.stats.color_rg;
+   rec.color_bg             = lastRun.stats.color_bg;
+   rec.fwhm_median          = lastRun.stats.fwhm_median;
+   rec.star_count           = lastRun.stats.star_count;
+
+   rec.params_json          = lastRun.params_json_applied;
+   rec.rating_brightness    = res.brightness;
+   rec.rating_saturation    = res.saturation;
+   rec.rating_color         = res.color;          // std::optional<int>
+   rec.rating_star_bloat    = res.star_bloat;
+   rec.rating_overall       = res.overall;
+
+   if ( !nukex::learning::insert_run( db, rec ) )
+   {
+      console.CriticalLn( String( "NukeX: rating insert failed; rating discarded." ) );
+      nukex::learning::close_rating_db( db );
+      return;
+   }
+
+   // Attach the read-only bootstrap DB if it ships with this version.
+   // At v4.0.1.0 ship the bootstrap is empty (Phase 8.5 populates), so
+   // attach is a no-op and train_one_stretch sees just the user rows.
+   // Re-derive share_root only for the bootstrap path -- symmetrical with
+   // ExecuteGlobal and avoids stashing another field on LastRunState.
+   {
+      const char* home = std::getenv( "HOME" );
+      const std::string user_data_root =
+          home ? std::string( home ) + "/.config" : std::string( "/tmp" );
+      const std::string share_root = "/opt/PixInsight/share";
+      auto paths = nukex::learning::resolve_user_data_paths( user_data_root, share_root );
+      nukex::learning::attach_bootstrap( db, paths.bootstrap_db );
+   }
+
+   // Retrain Layer 3 for this stretch only. If not enough rows yet, the
+   // per_param map comes back empty and we simply skip the model update.
+   auto stretch_coeffs = nukex::learning::train_one_stretch(
+       db, lastRun.stretch_name, /*lambda=*/ 1.0 );
+
+   nukex::learning::close_rating_db( db );
+   db = nullptr;
+
+   if ( stretch_coeffs.per_param.empty() )
+   {
+      // Not enough data yet -- Layer 3 stays unchanged. Still counts as
+      // a successful rating save; the row is in the DB for future fits.
+      console.NoteLn( String( "NukeX: rating saved. Layer 3 will update once more rows are collected." ) );
+      return;
+   }
+
+   // Load existing user models, replace the retrained stretch, serialise
+   // to a JSON string, then atomic_write over the target file.
+   nukex::ParamModelMap models;
+   nukex::read_param_models_json( lastRun.user_model_json_path, models );
+
+   nukex::ParamModel updated( lastRun.stretch_name );
+   for ( const auto& [pname, c] : stretch_coeffs.per_param )
+   {
+      nukex::ParamCoefficients out;
+      out.feature_mean = c.feature_mean;
+      out.feature_std  = c.feature_std;
+      out.coefficients = c.coefficients;
+      out.intercept    = c.intercept;
+      out.lambda       = c.lambda;
+      out.n_train_rows = c.n_train_rows;
+      out.cv_r_squared = c.cv_r_squared;
+      updated.add_param( pname, std::move( out ) );
+   }
+
+   models.erase( lastRun.stretch_name );
+   if ( !updated.empty() )
+      models.emplace( lastRun.stretch_name, std::move( updated ) );
+
+   // Stage-serialise: write_param_models_json takes a path. Write to a
+   // staging path, slurp it back into a string, then atomic_write_file
+   // over user_model_json_path. A future refactor should add a to_string()
+   // overload; keeping the dance inline for v4.0.1.0 avoids touching the
+   // serialiser signature and its callers.
+   const std::string stage_path = lastRun.user_model_json_path + ".stage";
+   if ( !nukex::write_param_models_json( models, stage_path ) )
+   {
+      console.CriticalLn( String(
+          "NukeX: couldn't stage retrained model; rating row saved but Layer 3 stale." ) );
+      return;
+   }
+
+   std::string staged_contents;
+   {
+      std::ifstream stage( stage_path, std::ios::binary );
+      std::stringstream buf;
+      buf << stage.rdbuf();
+      staged_contents = buf.str();
+   }
+   std::error_code ec_rm;
+   std::filesystem::remove( stage_path, ec_rm );
+
+   if ( !nukex::learning::atomic_write_file( lastRun.user_model_json_path, staged_contents ) )
+   {
+      console.CriticalLn( String(
+          "NukeX: couldn't persist retrained model; rating row saved but Layer 3 stale." ) );
+      return;
+   }
+
+   console.NoteLn( String(
+       IsoString( "NukeX: Layer 3 coefficients updated for " )
+       + lastRun.stretch_name.c_str() + "." ) );
 }
 
 NukeXInstance::NukeXInstance( const MetaProcess* m )
@@ -445,6 +587,8 @@ bool NukeXInstance::ExecuteGlobal()
          lastRun.created_at_unix     =
              std::chrono::duration_cast<std::chrono::seconds>(
                  std::chrono::system_clock::now().time_since_epoch() ).count();
+         lastRun.user_db_path         = paths.user_db;
+         lastRun.user_model_json_path = paths.user_model_json;
       }
       else
       {

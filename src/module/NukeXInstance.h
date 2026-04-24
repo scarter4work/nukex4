@@ -73,6 +73,12 @@ public:
       std::string                      params_json_applied;
       std::array<std::uint8_t, 16>     run_id           {};
       std::int64_t                     created_at_unix  = 0;
+
+      // Resolved at Execute time so Task 19's SaveRatingFromLastRun can reach
+      // the same files the predict path read. Re-deriving would risk drift if
+      // HOME changes between the run and the Save click.
+      std::string                      user_db_path;
+      std::string                      user_model_json_path;
    };
    LastRunState lastRun;
 

@@ -71,6 +71,7 @@ add_library(nukex4_learning STATIC
     src/ridge_regression.cpp
     src/rating_db.cpp
     src/train_model.cpp
+    src/atomic_write.cpp
 )
 
 target_include_directories(nukex4_learning
