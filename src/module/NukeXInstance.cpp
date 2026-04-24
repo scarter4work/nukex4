@@ -29,7 +29,8 @@
 
 #include <chrono>
 #include <cstdint>
-#include <cstdlib>   // std::getenv, std::rand
+#include <cstdlib>   // std::getenv
+#include <random>
 #include <string>
 
 namespace {
@@ -428,10 +429,18 @@ bool NukeXInstance::ExecuteGlobal()
          lastRun.stretch_name        = primary_op->name;
          lastRun.filter_class        =
              filter_class_to_rating_int( nukex::classify_filter( meta ) );
-         lastRun.target_class        = 0; // TODO Phase 8.5: FITS OBJECT -> class
+         lastRun.target_class        = 0; // TODO(Phase 8.5): FITS OBJECT -> class
          lastRun.params_json_applied = op_trainable_params_json( *primary_op );
-         for ( int i = 0; i < 16; ++i )
-            lastRun.run_id[i] = static_cast<std::uint8_t>( std::rand() & 0xff );
+         // Fresh 128-bit run id. std::rand is not seeded anywhere in NukeX
+         // and would repeat across PI launches, so Task 19's DB would get
+         // silent primary-key collisions; use random_device-seeded mt19937
+         // instead. ExecuteGlobal is UI-thread only, so the static RNG is safe.
+         {
+            static std::mt19937_64 rng{ std::random_device{}() };
+            std::uniform_int_distribution<int> byte_dist( 0, 255 );
+            for ( auto& byte : lastRun.run_id )
+               byte = static_cast<std::uint8_t>( byte_dist( rng ) );
+         }
          lastRun.created_at_unix     =
              std::chrono::duration_cast<std::chrono::seconds>(
                  std::chrono::system_clock::now().time_since_epoch() ).count();
