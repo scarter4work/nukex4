@@ -258,4 +258,28 @@ std::vector<RunRecord> select_runs_for_stretch(sqlite3* db,
     return out;
 }
 
+UserDataPaths resolve_user_data_paths(const std::string& user_data_root,
+                                      const std::string& share_root) {
+    namespace fs = std::filesystem;
+    UserDataPaths p;
+    fs::path base = fs::path(user_data_root) / "nukex4";
+    std::error_code ec;
+    fs::create_directories(base, ec);
+    // Best-effort 0700 on POSIX — if this fails (e.g. Windows or the dir
+    // already has custom perms), we still ship a working Phase 8 path.
+    (void)ec;
+    std::error_code perm_ec;
+    fs::permissions(base,
+                    fs::perms::owner_all,
+                    fs::perm_options::replace,
+                    perm_ec);
+    (void)perm_ec;
+
+    p.user_db              = (base / "phase8_user.sqlite").string();
+    p.user_model_json      = (base / "phase8_user_model.json").string();
+    p.bootstrap_db         = (fs::path(share_root) / "phase8_bootstrap.sqlite").string();
+    p.bootstrap_model_json = (fs::path(share_root) / "phase8_bootstrap_model.json").string();
+    return p;
+}
+
 } // namespace nukex::learning

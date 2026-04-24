@@ -7,6 +7,12 @@
 #include <pcl/ProcessImplementation.h>
 #include <pcl/MetaParameter.h>
 
+#include "nukex/stretch/image_stats.hpp"
+
+#include <array>
+#include <cstdint>
+#include <string>
+
 namespace pcl
 {
 
@@ -48,6 +54,22 @@ public:
    // Output (populated by ExecuteGlobal, readable from PJSR).
    int32       nFramesProcessed        = 0;
    int32       nFramesFailedAlignment  = 0;
+
+   // Phase 8: after Execute we stash enough state to save a rating row later.
+   // Populated unconditionally at the end of ExecuteGlobal (even when the
+   // popup is suppressed by env var / user opt-out), so Task 18's "Rate
+   // last run" button can reopen the dialog without re-running the stack.
+   struct LastRunState {
+      bool                             valid            = false;
+      nukex::ImageStats                stats;
+      std::string                      stretch_name;
+      int                              filter_class     = 0;
+      int                              target_class     = 0;
+      std::string                      params_json_applied;
+      std::array<std::uint8_t, 16>     run_id           {};
+      std::int64_t                     created_at_unix  = 0;
+   };
+   LastRunState lastRun;
 };
 
 // No singleton — PCL creates instances per-use via Process::Create()/Clone()

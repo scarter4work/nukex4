@@ -33,6 +33,12 @@ rm -rf "${OUTPUT_ROOT}"
 # the longest observed good E2E on NGC7635 (primary + 3 sweeps ≈ 20 min)
 # and ~1.7× the worst-case fresh-GPU-compile + cold-cache baseline.
 NUKEX_E2E_TIMEOUT="${NUKEX_E2E_TIMEOUT:-3600}"
+
+# Phase 8: suppress the post-Execute rating popup.  Without this, the
+# dialog would block the harness and the run would time out. The popup
+# is purely a user-opinion capture step; it has no effect on the stacked
+# / stretched pixel output the E2E validator hashes.
+export NUKEX_PHASE8_NO_POPUP=1
 # --default-modules forces PI to rescan its bin/ directory on startup and
 # re-register every module found there.  Without this, PI relies on its
 # persistent "installed modules" list from user settings, which can fall

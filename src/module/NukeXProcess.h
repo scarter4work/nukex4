@@ -29,6 +29,15 @@ public:
    bool NeedsInitialization() const override;
    bool NeedsValidation() const override;
    bool PrefersGlobalExecution() const override;
+
+   // Phase 8 (Task 17 stub; Task 18 backs with PCL Settings).
+   //
+   // "Suppressed" means "don't auto-open the rating popup after Execute".
+   // The "Rate last run" button on the interface (Task 18) must still work
+   // regardless. Const because Task 18 will persist via PCL Settings, not
+   // member state.
+   bool rating_popup_suppressed() const;
+   void set_rating_popup_suppressed(bool v) const;
 };
 
 extern NukeXProcess* TheNukeXProcess;

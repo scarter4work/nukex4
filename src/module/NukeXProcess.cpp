@@ -130,4 +130,19 @@ bool NukeXProcess::PrefersGlobalExecution() const
    return true;  // Always global — file input, not view input
 }
 
+// ── Phase 8 popup-suppression stubs ────────────────────────────────────
+// Task 18 will back these with PCL Settings under the key
+// "NukeX/Phase8/RatingPopupSuppressed". Today they are no-ops — the popup
+// always shows unless the env var NUKEX_PHASE8_NO_POPUP is set (handled at
+// the call site in NukeXInstance::ExecuteGlobal).
+bool NukeXProcess::rating_popup_suppressed() const
+{
+   return false;
+}
+
+void NukeXProcess::set_rating_popup_suppressed( bool /*v*/ ) const
+{
+   // Intentionally no-op until Task 18.
+}
+
 } // namespace pcl

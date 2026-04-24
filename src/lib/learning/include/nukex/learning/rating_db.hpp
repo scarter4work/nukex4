@@ -63,4 +63,23 @@ std::vector<RunRecord> select_runs_for_stretch(sqlite3* db, const std::string& s
 
 void close_rating_db(sqlite3* db);
 
+// ── Phase 8 file-path resolution ─────────────────────────────────────────
+// Canonical locations for the Phase 8 rating DB, the user-trained model
+// coefficients, and the (optional) community bootstrap files that ship with
+// the module. Populated once in NukeXInstance::ExecuteGlobal so the Layer 3
+// → Layer 2 → Layer 1 fallback chain can find its inputs.
+struct UserDataPaths {
+    std::string user_db;              // <user-data>/nukex4/phase8_user.sqlite
+    std::string user_model_json;      // <user-data>/nukex4/phase8_user_model.json
+    std::string bootstrap_db;         // <module-install>/share/phase8_bootstrap.sqlite
+    std::string bootstrap_model_json; // <module-install>/share/phase8_bootstrap_model.json
+};
+
+// Resolves Phase 8 file paths using user_data_root (typically PCL
+// File::ApplicationData()) and share_root (module install dir + "/share").
+// Ensures user_data_root/nukex4/ exists (created 0700 on POSIX when a new
+// directory). Safe to call repeatedly.
+UserDataPaths resolve_user_data_paths(const std::string& user_data_root,
+                                      const std::string& share_root);
+
 } // namespace nukex::learning

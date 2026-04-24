@@ -7,6 +7,8 @@
 #include "NukeXVersion.h"
 
 #include "NukeXProgress.h"
+#include "RatingDialog.h"
+#include "filter_classifier.hpp"
 #include <pcl/ImageWindow.h>
 #include <pcl/View.h>
 #include <pcl/FITSHeaderKeyword.h>
@@ -14,11 +16,21 @@
 // NukeX pipeline headers
 #include "nukex/stacker/stacking_engine.hpp"
 #include "nukex/stretch/stretch_pipeline.hpp"
+#include "nukex/stretch/image_stats.hpp"
+#include "nukex/stretch/layer_loader.hpp"
+#include "nukex/learning/rating_db.hpp"
 #include "fits_metadata.hpp"
 #include "stretch_factory.hpp"
 
+#include <nlohmann/json.hpp>
+
 #include <sys/stat.h>
 #include <unistd.h>
+
+#include <chrono>
+#include <cstdint>
+#include <cstdlib>   // std::getenv, std::rand
+#include <string>
 
 namespace {
 
@@ -52,6 +64,61 @@ pcl::FITSKeywordArray base_output_keywords(
       pcl::IsoString( "NukeX v" ) + nukex_version
           + " - Distribution-Fitted Stacking" ) );
    return ka;
+}
+
+// Phase 8 rating-popup filter-class encoding.
+//
+// The plan's rating-axis encoding (per RatingDialog) is:
+//   0 = LRGB_mono, 1 = Bayer_RGB, 2 = Narrowband_HaO3, 3 = Narrowband_S2O3
+//
+// Our FilterClass enum is:
+//   LRGB_MONO=0, LRGB_COLOR=1, BAYER_RGB=2, NARROWBAND=3
+//
+// The ONLY semantic contract at Task 17 is "filter_class == 1 shows color
+// axis; everything else hides it" — i.e. only a Bayer mosaic run offers
+// meaningful color-balance feedback. LRGB_COLOR (separate RGB channel
+// stacks) collapses to the same no-color-slider UI as mono for this
+// dialog: users rate brightness, saturation, star bloat, overall.
+// Narrowband Ha-O3 vs S2-O3 distinction is not derivable from FITS
+// metadata today and is deferred to Phase 8.5 with explicit filter
+// assignment.
+int filter_class_to_rating_int( nukex::FilterClass fc )
+{
+   switch ( fc )
+   {
+   case nukex::FilterClass::LRGB_MONO:  return 0;
+   case nukex::FilterClass::LRGB_COLOR: return 0; // treat as mono for color-axis purposes
+   case nukex::FilterClass::BAYER_RGB:  return 1;
+   case nukex::FilterClass::NARROWBAND: return 2; // Ha-O3 default; S2-O3 distinction deferred
+   }
+   return 0;
+}
+
+// Serialize the trainable params on `op` to a compact JSON object so Task
+// 19 can store it in the rating DB verbatim. Keys come from
+// op.param_bounds(); only params whose current value is readable via
+// get_param() are emitted.
+std::string op_trainable_params_json( const nukex::StretchOp& op )
+{
+   using json = nlohmann::json;
+   json j = json::object();
+   for ( const auto& [pname, _] : op.param_bounds() )
+   {
+      auto v = op.get_param( pname );
+      if ( v.has_value() )
+         j[pname] = static_cast<double>( *v );
+   }
+   return j.dump();
+}
+
+// Task 17 stub for Task 19.
+// TODO(Task 19): replace with atomic-write impl (tmp + fsync + rename).
+void save_rating_from_last_run( const pcl::RatingResult& /*res*/ )
+{
+   // Intentionally empty until Task 19 — the rating is collected but not
+   // persisted here. E2E regression is unaffected because no file I/O
+   // happens and because this path only runs when the user clicks Save,
+   // which the headless harness explicitly does not do.
 }
 
 } // anonymous namespace
@@ -309,18 +376,70 @@ bool NukeXInstance::ExecuteGlobal()
       progress.message( "Stacked image opened." );
    }
 
-   // ── Stretch pipeline (Phase 7 wiring) ─────────────────────────
+   // ── Stretch pipeline (Phase 7 wiring + Phase 8 context) ──────
+   //
+   // Phase 8 Layer 3 → Layer 2 → Layer 1 fallback runs inside build_primary.
+   // At v4.0.1.0 ship, Layer 2 ships empty (bootstrap deferred to Phase 8.5)
+   // and Layer 3 is empty until the user saves a rating, so this reduces to
+   // factory defaults — preserving bit-identical output vs v4.0.0.8.
    if ( !result.stacked.empty() && !light_paths.empty() )
    {
       nukex::FITSMetadata meta = nukex::read_fits_metadata( light_paths.front() );
+
+      // Resolve Phase 8 file paths. user_data_root is where per-user rating
+      // DB + trained-model JSON live; share_root is where the read-only
+      // bootstrap ships (absent today — LayerLoader falls back cleanly).
+      //
+      // Path strategy (intentionally pragmatic for Task 17):
+      //   * user_data_root = $HOME/.config (falls back to /tmp if no HOME)
+      //   * share_root     = /opt/PixInsight/share (files absent until
+      //                      Phase 8.5 ships a bootstrap)
+      // Phase 8.5 will revisit this to use PCL's File::ApplicationData()
+      // and a module-relative share dir.
+      const char* home = std::getenv( "HOME" );
+      const std::string user_data_root =
+          home ? std::string( home ) + "/.config" : std::string( "/tmp" );
+      const std::string share_root = "/opt/PixInsight/share";
+
+      auto paths = nukex::learning::resolve_user_data_paths( user_data_root, share_root );
+
+      nukex::LayerLoader layer_loader( paths.bootstrap_model_json,
+                                       paths.user_model_json );
+      nukex::ImageStats  stats = nukex::compute_image_stats( result.stacked );
+      nukex::Phase8Context p8{ &layer_loader, &stats };
+
       std::string auto_log;
       auto primary_op   = nukex::build_primary(
-          static_cast<nukex::PrimaryStretch>( primaryStretch ), meta, auto_log );
+          static_cast<nukex::PrimaryStretch>( primaryStretch ), meta, auto_log, &p8 );
       auto finishing_op = nukex::build_finishing(
           static_cast<nukex::FinishingStretch>( finishingStretch ) );
 
       if ( !auto_log.empty() )
          progress.message( auto_log.c_str() );
+
+      // Capture last-run state BEFORE the unique_ptr is moved into the
+      // pipeline, so we can read op.name / op.get_param() cheaply. The
+      // rating dialog (below) and Task 18's "Rate last run" button both
+      // depend on lastRun being populated for every successful Execute.
+      if ( primary_op )
+      {
+         lastRun.valid               = true;
+         lastRun.stats               = stats;
+         lastRun.stretch_name        = primary_op->name;
+         lastRun.filter_class        =
+             filter_class_to_rating_int( nukex::classify_filter( meta ) );
+         lastRun.target_class        = 0; // TODO Phase 8.5: FITS OBJECT -> class
+         lastRun.params_json_applied = op_trainable_params_json( *primary_op );
+         for ( int i = 0; i < 16; ++i )
+            lastRun.run_id[i] = static_cast<std::uint8_t>( std::rand() & 0xff );
+         lastRun.created_at_unix     =
+             std::chrono::duration_cast<std::chrono::seconds>(
+                 std::chrono::system_clock::now().time_since_epoch() ).count();
+      }
+      else
+      {
+         lastRun.valid = false;
+      }
 
       // Deep copy — stretch is in-place; must not mutate result.stacked.
       // Safe: nukex::Image stores pixels in std::vector<float>, so operator=
@@ -383,6 +502,27 @@ bool NukeXInstance::ExecuteGlobal()
 
       sw_win.Show();
       progress.message( "Stretched image opened." );
+
+      // ── Phase 8 rating popup ─────────────────────────────────
+      // Skip unconditionally when:
+      //   (a) NUKEX_PHASE8_NO_POPUP is set — headless / E2E harness
+      //   (b) the user has opted out via the "don't show again" checkbox
+      //       (Task 18 persists this through PCL Settings)
+      // Otherwise, open the dialog and let Task 19 persist anything the
+      // user clicks Save on.  save_rating_from_last_run is currently a
+      // no-op stub so the E2E regression is unaffected.
+      const bool headless = ( std::getenv( "NUKEX_PHASE8_NO_POPUP" ) != nullptr );
+      if ( lastRun.valid && !headless
+           && TheNukeXProcess != nullptr
+           && !TheNukeXProcess->rating_popup_suppressed() )
+      {
+         pcl::RatingDialog dlg( lastRun.filter_class );
+         pcl::RatingResult res = dlg.Run();
+         if ( res.dont_show_again )
+            TheNukeXProcess->set_rating_popup_suppressed( true );
+         if ( res.saved )
+            save_rating_from_last_run( res );
+      }
    }
 
    // Create noise map window
