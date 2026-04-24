@@ -17,6 +17,7 @@ set(MODULE_SOURCES
     NukeXInterface.cpp
     NukeXParameters.cpp
     NukeXProgress.cpp
+    RatingDialog.cpp
     fits_metadata.cpp
     filter_classifier.cpp
     stretch_auto_selector.cpp
