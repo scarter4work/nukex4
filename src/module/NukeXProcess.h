@@ -30,14 +30,14 @@ public:
    bool NeedsValidation() const override;
    bool PrefersGlobalExecution() const override;
 
-   // Phase 8 (Task 17 stub; Task 18 backs with PCL Settings).
-   //
+   // Phase 8 — PCL Settings-backed opt-out under key
+   // "NukeX/Phase8/RatingPopupSuppressed" (see NukeXProcess.cpp).
    // "Suppressed" means "don't auto-open the rating popup after Execute".
-   // The "Rate last run" button on the interface (Task 18) must still work
-   // regardless. Const because Task 18 will persist via PCL Settings, not
-   // member state.
+   // The "Rate last run" button on NukeXInterface still works regardless.
+   // Methods are const because persistence lives in PCL Settings, not on
+   // member state -- the Process singleton itself is stateless.
    bool rating_popup_suppressed() const;
-   void set_rating_popup_suppressed(bool v) const;
+   void set_rating_popup_suppressed(bool suppressed) const;
 };
 
 extern NukeXProcess* TheNukeXProcess;
