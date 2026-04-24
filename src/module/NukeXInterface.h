@@ -88,6 +88,13 @@ private:
       ComboBox       FinishingStretch_ComboBox;
       HorizontalSizer GPU_Sizer;
       CheckBox       EnableGPU_CheckBox;
+
+      // Phase 8 rating controls. Rate-last-run re-opens RatingDialog against
+      // instance.lastRun (populated by ExecuteGlobal). SuppressRating persists
+      // via TheNukeXProcess->set_rating_popup_suppressed (PCL Settings).
+      HorizontalSizer Rating_Sizer;
+      PushButton     RateLastRun_Button;
+      CheckBox       SuppressRating_CheckBox;
    };
 
    GUIData* GUI = nullptr;
@@ -107,6 +114,10 @@ private:
    void e_FlatClear( Button& sender, bool checked );
    void e_ItemSelected( ComboBox& sender, int itemIndex );
    void e_OptionToggled( Button& sender, bool checked );
+
+   // Phase 8 rating controls.
+   void e_RateLastRun( Button& sender, bool checked );
+   void e_SuppressRating( Button& sender, bool checked );
 };
 
 extern NukeXInterface* TheNukeXInterface;

@@ -112,20 +112,21 @@ std::string op_trainable_params_json( const nukex::StretchOp& op )
    return j.dump();
 }
 
-// Task 17 stub for Task 19.
-// TODO(Task 19): replace with atomic-write impl (tmp + fsync + rename).
-void save_rating_from_last_run( const pcl::RatingResult& /*res*/ )
+} // anonymous namespace
+
+namespace pcl
+{
+
+// Task 17 stub for Task 19, promoted to a NukeXInstance method in Task 18 so
+// NukeXInterface's "Rate last run" button can call it too.
+// TODO(Task 19): replace body with atomic-write impl (tmp + fsync + rename).
+void NukeXInstance::SaveRatingFromLastRun( const pcl::RatingResult& /*res*/ )
 {
    // Intentionally empty until Task 19 — the rating is collected but not
    // persisted here. E2E regression is unaffected because no file I/O
    // happens and because this path only runs when the user clicks Save,
    // which the headless harness explicitly does not do.
 }
-
-} // anonymous namespace
-
-namespace pcl
-{
 
 NukeXInstance::NukeXInstance( const MetaProcess* m )
    : ProcessImplementation( m )
@@ -530,7 +531,7 @@ bool NukeXInstance::ExecuteGlobal()
          if ( res.dont_show_again )
             TheNukeXProcess->set_rating_popup_suppressed( true );
          if ( res.saved )
-            save_rating_from_last_run( res );
+            SaveRatingFromLastRun( res );
       }
    }
 

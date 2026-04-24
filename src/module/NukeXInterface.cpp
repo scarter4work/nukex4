@@ -4,6 +4,7 @@
 #include "NukeXInterface.h"
 #include "NukeXProcess.h"
 #include "NukeXParameters.h"
+#include "RatingDialog.h"
 
 #include <pcl/FileDialog.h>
 #include <pcl/ErrorHandler.h>
@@ -249,10 +250,35 @@ NukeXInterface::GUIData::GUIData( NukeXInterface& w )
    GPU_Sizer.Add( EnableGPU_CheckBox );
    GPU_Sizer.AddStretch();
 
+   // ── Phase 8 rating controls ──
+   // The button is only useful after an Execute has populated
+   // instance.lastRun; UpdateControls() keeps its enabled state in sync.
+   RateLastRun_Button.SetText( "Rate last run" );
+   RateLastRun_Button.SetToolTip(
+      "Re-opens the rating dialog against the most recent Execute so you "
+      "can score the stack after the fact.  Disabled until the first run "
+      "in this session produces a stretched image.  Saving a rating here "
+      "writes to the same per-user database the automatic popup uses." );
+   RateLastRun_Button.OnClick( (Button::click_event_handler)&NukeXInterface::e_RateLastRun, w );
+
+   SuppressRating_CheckBox.SetText( "Don't show rating popup after Execute" );
+   SuppressRating_CheckBox.SetToolTip(
+      "When checked, NukeX will not open the rating dialog automatically "
+      "after an Execute.  You can still rate runs via the \"Rate last run\" "
+      "button.  Persists across PixInsight restarts under setting key "
+      "NukeX/Phase8/RatingPopupSuppressed." );
+   SuppressRating_CheckBox.OnClick( (Button::click_event_handler)&NukeXInterface::e_SuppressRating, w );
+
+   Rating_Sizer.SetSpacing( 16 );
+   Rating_Sizer.Add( RateLastRun_Button );
+   Rating_Sizer.Add( SuppressRating_CheckBox );
+   Rating_Sizer.AddStretch();
+
    Options_Sizer.SetSpacing( 4 );
    Options_Sizer.Add( PrimaryStretch_Sizer );
    Options_Sizer.Add( FinishingStretch_Sizer );
    Options_Sizer.Add( GPU_Sizer );
+   Options_Sizer.Add( Rating_Sizer );
 
    Options_Control.SetSizer( Options_Sizer );
 
@@ -284,6 +310,13 @@ void NukeXInterface::UpdateControls()
    GUI->PrimaryStretch_ComboBox.SetCurrentItem( instance.primaryStretch );
    GUI->FinishingStretch_ComboBox.SetCurrentItem( instance.finishingStretch );
    GUI->EnableGPU_CheckBox.SetChecked( instance.enableGPU );
+
+   // Phase 8: "Rate last run" is meaningful only when ExecuteGlobal has
+   // populated lastRun; SuppressRating reflects the PCL-Settings-backed
+   // opt-out.
+   GUI->RateLastRun_Button.Enable( instance.lastRun.valid );
+   GUI->SuppressRating_CheckBox.SetChecked(
+      TheNukeXProcess != nullptr && TheNukeXProcess->rating_popup_suppressed() );
 }
 
 void NukeXInterface::UpdateLightFramesList()
@@ -439,6 +472,33 @@ void NukeXInterface::e_OptionToggled( Button& sender, bool checked )
 {
    if ( sender == GUI->EnableGPU_CheckBox )
       instance.enableGPU = checked;
+}
+
+// ── Phase 8 rating handlers ──────────────────────────────────────
+
+void NukeXInterface::e_RateLastRun( Button& /*sender*/, bool /*checked*/ )
+{
+   if ( !instance.lastRun.valid )
+      return;
+
+   RatingDialog dlg( instance.lastRun.filter_class );
+   RatingResult res = dlg.Run();
+
+   if ( res.saved )
+      instance.SaveRatingFromLastRun( res );
+
+   if ( res.dont_show_again )
+   {
+      if ( TheNukeXProcess != nullptr )
+         TheNukeXProcess->set_rating_popup_suppressed( true );
+      GUI->SuppressRating_CheckBox.SetChecked( true );
+   }
+}
+
+void NukeXInterface::e_SuppressRating( Button& /*sender*/, bool checked )
+{
+   if ( TheNukeXProcess != nullptr )
+      TheNukeXProcess->set_rating_popup_suppressed( checked );
 }
 
 } // namespace pcl

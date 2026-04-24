@@ -16,6 +16,11 @@
 namespace pcl
 {
 
+// Forward declaration — full definition lives in RatingDialog.h. Task 19
+// replaces SaveRatingFromLastRun's body with a real atomic-write impl that
+// uses the fields on this struct.
+struct RatingResult;
+
 class NukeXInstance : public ProcessImplementation
 {
 public:
@@ -70,6 +75,12 @@ public:
       std::int64_t                     created_at_unix  = 0;
    };
    LastRunState lastRun;
+
+   // Phase 8: persist the most recent rating. Task 17 stubbed; Task 19
+   // implements atomic tmp + fsync + rename into the per-user rating DB.
+   // Caller must ensure lastRun.valid == true before calling.
+   // Public so NukeXInterface's "Rate last run" button (Task 18) can reach it.
+   void SaveRatingFromLastRun( const pcl::RatingResult& res );
 };
 
 // No singleton — PCL creates instances per-use via Process::Create()/Clone()

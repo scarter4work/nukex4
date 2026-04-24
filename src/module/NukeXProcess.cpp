@@ -4,6 +4,7 @@
 #include "NukeXProcess.h"
 #include "NukeXParameters.h"
 #include <pcl/ErrorHandler.h>
+#include <pcl/Settings.h>
 #include "NukeXInstance.h"
 #include "NukeXInterface.h"
 
@@ -130,19 +131,25 @@ bool NukeXProcess::PrefersGlobalExecution() const
    return true;  // Always global — file input, not view input
 }
 
-// ── Phase 8 popup-suppression stubs ────────────────────────────────────
-// Task 18 will back these with PCL Settings under the key
-// "NukeX/Phase8/RatingPopupSuppressed". Today they are no-ops — the popup
-// always shows unless the env var NUKEX_PHASE8_NO_POPUP is set (handled at
-// the call site in NukeXInstance::ExecuteGlobal).
+// ── Phase 8 popup-suppression (PCL Settings-backed) ───────────────────
+// The "Don't show rating popup after Execute" checkbox on NukeXInterface
+// persists through this key. Both reads and writes go to PI's local
+// settings store for the current user — no file I/O here.
+//
+// See: /opt/PixInsight/include/pcl/Settings.h lines 219 (Read bool) and
+// 576 (Write bool).
+static const pcl::IsoString kRatingSuppressedKey = "NukeX/Phase8/RatingPopupSuppressed";
+
 bool NukeXProcess::rating_popup_suppressed() const
 {
-   return false;
+   bool v = false;
+   pcl::Settings::Read( kRatingSuppressedKey, v );
+   return v;
 }
 
-void NukeXProcess::set_rating_popup_suppressed( bool /*v*/ ) const
+void NukeXProcess::set_rating_popup_suppressed( bool suppressed ) const
 {
-   // Intentionally no-op until Task 18.
+   pcl::Settings::Write( kRatingSuppressedKey, suppressed );
 }
 
 } // namespace pcl
