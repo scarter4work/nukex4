@@ -214,8 +214,26 @@ void NukeXInstance::SaveRatingFromLastRun( const pcl::RatingResult& res )
 
    // Load existing user models, replace the retrained stretch, serialise
    // to a JSON string, then atomic_write over the target file.
+   //
+   // Corrupt-file guard: read_param_models_json clears `out` on any parse
+   // failure. If the user file exists but is unparseable, blindly merging
+   // into the empty map and writing back would silently destroy the
+   // other stretches' coefficients. Preserve the corrupt file for forensics
+   // and keep the rating row -- Layer 3 for this stretch stays stale until
+   // the user resolves the corruption (or a future Reset-to-bootstrap
+   // escape hatch lands in the deferred polish release).
    nukex::ParamModelMap models;
-   nukex::read_param_models_json( lastRun.user_model_json_path, models );
+   if ( std::filesystem::exists( lastRun.user_model_json_path ) )
+   {
+      if ( !nukex::read_param_models_json( lastRun.user_model_json_path, models ) )
+      {
+         console.CriticalLn( String(
+             "NukeX: user model JSON is corrupt; rating row saved but Layer 3 "
+             "not rewritten. Original file preserved for forensics." ) );
+         return;
+      }
+   }
+   // else: fresh install, no user model yet -- proceed with empty map.
 
    nukex::ParamModel updated( lastRun.stretch_name );
    for ( const auto& [pname, c] : stretch_coeffs.per_param )
