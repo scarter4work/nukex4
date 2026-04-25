@@ -8,31 +8,31 @@ namespace pcl {
 static void init_signed_slider(HorizontalSlider& s) {
     s.SetRange(-2, 2);
     s.SetValue(0);
-    s.SetMinWidth(180);
+    s.SetMinWidth(120);
 }
 
 RatingDialog::RatingDialog(int filter_class) : filter_class_(filter_class) {
     SetWindowTitle("Rate last NukeX run");
 
-    title_.SetText("How did the stretch look? Nudge anything that felt off, then Save.");
+    title_.SetText("Nudge what felt off, then Save.");
 
-    brightness_label_.SetText("Brightness: dark  <-  0  ->  bright");
+    brightness_label_.SetText("Brightness  (dim <-> bright)");
     init_signed_slider(brightness_);
 
-    saturation_label_.SetText("Saturation: washed  <-  0  ->  pumped");
+    saturation_label_.SetText("Saturation  (washed <-> pumped)");
     init_signed_slider(saturation_);
 
-    color_label_.SetText("Color balance: cool  <-  0  ->  warm");
+    color_label_.SetText("Color  (cool <-> warm)");
     init_signed_slider(color_);
 
-    star_bloat_label_.SetText("Star bloat: tight  <-  0  ->  bloated");
+    star_bloat_label_.SetText("Stars  (tight <-> bloated)");
     init_signed_slider(star_bloat_);
 
-    overall_label_.SetText("Overall (1-5):");
+    overall_label_.SetText("Overall  (1-5)");
     overall_.SetRange(1, 5);
     overall_.SetValue(3);
 
-    dont_show_again_.SetText("Don't show this popup again (Rate last run button still works)");
+    dont_show_again_.SetText("Don't show after Execute");
 
     save_.SetText("Save");
     skip_.SetText("Skip");
