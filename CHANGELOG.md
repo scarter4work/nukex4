@@ -1,5 +1,124 @@
 # NukeX v4 — Changelog
 
+## v4.0.1.0 — 2026-04-25
+
+Phase 8: adaptive stretch tuning.  The first NukeX release where the
+auto-stretch can *learn from your taste*: rate a stack 1-5 with optional
+nudges on four axes (brightness, saturation, color, star bloat), and the
+next stack on similar imagery uses your accumulated ratings to nudge its
+own parameters.
+
+The learner is a three-layer fallback: a closed-form ridge regression
+trained from your own ratings (Layer 3) sits on top of an optional
+community-bootstrap model (Layer 2, deferred to v4.0.1.x), which sits on
+top of the Phase-5 hard-coded constants this project has shipped since
+v4.0.0.4 (Layer 1).  At fresh install the user model is empty and Layer
+2 is absent, so every stack falls through to Layer 1 — pixel output is
+**bit-identical to v4.0.0.8** (verified end-to-end, 6/6 golden hashes).
+The learning kicks in only after you actively click Save on a rating.
+
+### Added
+- **Rating popup after every Auto-stretch run.**  At the end of an
+  `executeGlobal()` that produced a `NukeX_stretched` window, a modal
+  asks "How did the stretch look?" with four signed sliders (-2..+2,
+  centred at 0 = "fine") plus an Overall (1..5) slider.  The Color
+  axis is hidden for mono / narrowband filter classes.  An "Rate last
+  run" button on the NukeX Interface re-opens the dialog for the most
+  recent run; a "Don't show after Execute" checkbox in the dialog
+  persists the opt-out via PCL Settings under
+  `NukeX/Phase8/RatingPopupSuppressed`.
+- **Closed-form ridge regression (Layer 3).**  Saving a rating triggers
+  an in-process retrain: the user's per-stretch run rows are loaded
+  from SQLite, ridge-regressed via Eigen LDLT (no iterative solver, no
+  external dependency), and the resulting per-parameter coefficients
+  are atomically written to `~/.nukex4/phase8_user_model.json`.
+  Atomic write = `tmp + fsync + rename` on POSIX; partial-write or
+  power-loss leaves the previous good model in place.  Cross-validated
+  R² is recorded per parameter so a future "Explain" UI can surface it.
+- **Image-statistics feature extractor (29 columns).**  Each stack
+  records per-channel mean / median / MAD / shadow-quartile / highlight
+  / dynamic-range / saturated-fraction plus global SNR / star-density /
+  noise-floor features as a single `runs` row keyed by a stable
+  `run_id`.  Layer 3 trains a separate ridge regression per parameter
+  per stretch, so a single user accumulates per-curve, per-axis taste
+  data without one curve's behavior leaking into another's prediction.
+- **SQLite ratings DB at `~/.nukex4/phase8_user.sqlite`.**  Schema v1
+  with WAL journal mode + on-open integrity check.  CRUD lives in
+  `src/lib/learning/rating_db.cpp`; an `ATTACH DATABASE` hook is in
+  place to layer Phase 8.5's bootstrap rows on top of the user's own
+  rows for the per-stretch query.
+- **Layer-fallback wiring through `stretch_factory`.**  The factory
+  consults `LayerLoader` (Layer 3 → Layer 2 → Layer 1 cascade) for the
+  parameters it ships to each `StretchOp::set_param`, with hard
+  per-parameter clamps from the new `StretchOp::param_bounds()` so the
+  learner can never drive a stretch outside its safe range.  All seven
+  Phase-5 curves participate (VeraLux, GHS, MTF, ArcSinh, Log, Lupton,
+  CLAHE).
+
+### Changed
+- **NukeXInstance now carries a Phase 8 last-run context** (`run_id`,
+  filter class, `lastRun` aggregate of the input stats + chosen curve
+  + final params).  This is what the rating dialog reads back when
+  the user clicks Save, and what the "Rate last run" button needs to
+  re-open the dialog without re-stacking.  `run_id` is seeded from
+  `std::random_device` so re-launches of PI never collide on a primary
+  key.
+- **RatingDialog UX polish.**  Sliders shrunk 180 → 120 px, axis
+  labels compacted to `Axis  (low <-> high)` form, so the modal is
+  narrow enough to sit beside the stretched image rather than
+  covering it.
+
+### Deferred — explicitly out of v4.0.1.0 scope
+- **Phase 8.5 (community bootstrap):**  ~350 of Scott's labeled
+  sessions exported to `share/phase8_bootstrap.sqlite` +
+  `share/phase8_bootstrap_model.json`, plus a new E2E golden
+  (`lrgb_mono_ngc7635_phase8_bootstrap`) covering the Layer 2
+  activation path.  Until this ships, Layer 2 is absent and every
+  Layer 3 fallback lands on Layer 1 — verified safe, see "Testing".
+- **Phase 8 polish release:**  Reset-to-factory, Reset-to-bootstrap,
+  and Explain UI escape hatches; non-modal rating dialog with live
+  preview.  Punted to a v4.0.1.x polish release; the v4.0.1.0 modal
+  is good enough to ship and the user has a "Don't show after
+  Execute" opt-out for users who don't want to rate.
+
+### Implementation notes
+- The user-trained model is per-(stretch, parameter) — one ridge
+  regression per cell of a 7-curves × ~2-params grid — so coefficients
+  can't bleed across curves.  A bug here would corrupt only the cell
+  being retrained, not the whole user model.
+- `read_param_models_json` clears its output map on any parse failure
+  to avoid silently mixing old + new data.  `SaveRatingFromLastRun`
+  guards against the corrupt-file case (file exists but won't parse)
+  so it doesn't atomically replace a bad-but-readable file with an
+  empty one — see `e7709a1`.
+
+### Testing
+- ctest serial: 55/55 pass (was 53 at v4.0.0.8 ship; +1
+  `test_atomic_write` for the JSON write path, +1
+  `test_phase8_fallback` for the Layer 3 → 2 → 1 cascade including
+  the missing-Layer-2-and-empty-user-model case that is in fact the
+  fresh-install state).
+- E2E goldens (6 hashes across primary `lrgb_mono_ngc7635` + GHS /
+  MTF / ArcSinh sweep variants) byte-for-byte against v4.0.0.8.  No
+  new goldens needed: existing goldens validate the no-rating path,
+  Layer 3 activation lives in integration tests with seeded user DB.
+- Two subagent-driven code-review catches landed during
+  implementation: `7cf0ac3` (unseeded `std::rand()` collision risk on
+  `run_id`) and `e7709a1` (corrupt `user_model_json` data-loss
+  scenario on retrain).
+
+### Build / plumbing
+- **SQLite amalgamation vendored via FetchContent** (same pattern
+  as cfitsio in v4.0.0.3) so the released `.so` doesn't depend on
+  whatever sqlite the user's PI happens to load.  `ldd NukeX-pxm.so |
+  grep -iE "sqlite|curl|ssl"` is empty by design.  The system path
+  remains opt-in via `-DNUKEX_USE_SYSTEM_SQLITE=ON` for distro
+  packagers.
+- **nlohmann/json v3.11.3 vendored** for the user-model JSON
+  round-trip.
+- New library `src/lib/learning/` housing the rating DB, ridge
+  regression, image stats, and per-stretch parameter model.
+
 ## v4.0.0.8 — 2026-04-21
 
 Robustness + observability release driven by the first real-data stack on
