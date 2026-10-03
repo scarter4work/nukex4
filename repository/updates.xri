@@ -3,6 +3,9 @@
    <description>
       <title>NukeX v4 — Distribution-Fitted Stacking</title>
       <copyright>Copyright (c) 2026 Scott Carter</copyright>
+      <p>
+         <b>MOVED:</b> NukeX now ships from the unified astro-pi repository. Please register https://raw.githubusercontent.com/scarter4work/astro-pi/main/repository/ to receive current NukeX releases and future updates. This repository is frozen and will not receive further updates.
+      </p>
    </description>
    <platform os="linux" arch="x64" version="1.8.0:1.9.9">
       <package fileName="20260425-linux-x64-NukeX.tar.gz" sha1="e3895e0ceaaa82c8c30d45f69e2c365e55c04b48" type="module" releaseDate="20260425">
@@ -11,4 +14,4 @@
       </package>
    </platform>
 </xri>
-<Signature developerId="scarter4work" timestamp="2026-04-25T17:12:41.055Z" encoding="Base64">J+aT1lamkpkn//Y4CZ3Fhi8fe4c6CiFfDtiEvkZ9u+MThWhCeytOR/km3B+wirNHITE6i57tH/ToNVa6L1n1CA==</Signature>
+<Signature developerId="scarter4work" timestamp="2026-10-03T18:24:49.044Z" encoding="Base64">8Q7hg1Ntb1pA1kvH0k5/cV6nH7DOH9KWJcCaiCXgaonU+JGXE8HnWcqz6/nXKPyES35QLQr1uAoiY4FchxQxAg==</Signature>
